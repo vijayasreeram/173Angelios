@@ -985,7 +985,7 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "എനിക്ക് സുഖമാണ്"
                 "can you hear me" -> "ഞാൻ പറയുന്നത് കേൾക്കുന്നുണ്ടോ?"
                 "where are you" -> "നിങ്ങൾ എവിടെയാണ്?"
-                "we need help" -> "ഞങ്ങൾക്ക് സഹায়ം വേണം"
+                "we need help" -> "ഞങ്ങൾക്ക് സഹായം വേണം"
                 "route is clear" -> "പാത സുരക്ഷിതമാണ്"
                 "road is blocked" -> "റോഡ് തടസ്സപ്പെട്ടിരിക്കുന്നു"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "റോഡ് തടസ്സപ്പെട്ടിരിക്കുന്നു, ഈ വഴി വരരുത്"
@@ -1384,7 +1384,7 @@ class OfflineTranslatorEngine {
                 Language.HINDI -> "$translatedItem कहाँ है?"
                 Language.TELUGU -> "$translatedItem ఎక్కడ ఉంది?"
                 Language.KANNADA -> "$translatedItem ಎಲ್ಲಿದೆ?"
-                Language.MALAYALAM -> "$translatedItem எവിടെയാണ്?"
+                Language.MALAYALAM -> "$translatedItem എവിടെയാണ്?"
                 else -> text
             }
         }

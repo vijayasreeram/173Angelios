@@ -98,7 +98,7 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
                     Language.TAMIL -> "அவசரம், வடக்கு சோதனைச் சாவடியில் ஒருவர் காயமடைந்துள்ளார்."
                     Language.HINDI -> "आपातकाल, उत्तर चेकपॉइंट के पास एक व्यक्ति घायल है।"
                     Language.ENGLISH -> "Emergency, there is a person injured near north checkpoint."
-                    Language.TELUGU -> "అత్యవసరం, ఉత్తర చెక్‌పోస్ట్ వద్ద ఒక వ్యక్తి గాயపడ్డాడు."
+                    Language.TELUGU -> "అత్యవసరం, ఉత్తర చెక్‌పోస్ట్ వద్ద ఒక వ్యక్తి గాయపడ్డాడు."
                     Language.BENGALI -> "জরুরী অবস্থা, উত্তর চেকপয়েন্টের কাছে একজন আহত হয়েছেন।"
                     else -> "Emergency, person injured near north checkpoint."
                 }
