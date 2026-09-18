@@ -13,9 +13,20 @@ import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.text.Normalizer
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+
+/**
+ * Android's SpeechRecognizer (and some IMEs) can emit Indic text with combining vowel
+ * signs/virama in Unicode-decomposed (NFD) form, while every hardcoded dictionary string
+ * and the bundled JSON packs are saved as NFC. The two forms render identically but are
+ * different byte sequences, so exact/substring string matching against the dictionaries
+ * silently fails for voice input even though the text looks correct on screen. Normalizing
+ * to NFC at every comparison boundary keeps lookups working regardless of source form.
+ */
+private fun String.nfc(): String = Normalizer.normalize(this, Normalizer.Form.NFC)
 
 data class EdgeServerStatus(
     val isOnline: Boolean = false,
@@ -238,13 +249,13 @@ class OfflineTranslatorEngine {
             val enToTgt = mutableMapOf<String, String>()
             val enToTgtJson = json.optJSONObject("phrases_en_to_target")
             enToTgtJson?.keys()?.forEach { key ->
-                enToTgt[key.lowercase(Locale.ROOT).trim()] = enToTgtJson.getString(key)
+                enToTgt[key.lowercase(Locale.ROOT).trim().nfc()] = enToTgtJson.getString(key)
             }
 
             val tgtToEn = mutableMapOf<String, String>()
             val tgtToEnJson = json.optJSONObject("phrases_target_to_en")
             tgtToEnJson?.keys()?.forEach { key ->
-                tgtToEn[key.trim()] = tgtToEnJson.getString(key)
+                tgtToEn[key.trim().nfc()] = tgtToEnJson.getString(key)
             }
 
             val colloquial = mutableListOf<Pair<String, String>>()
@@ -261,13 +272,13 @@ class OfflineTranslatorEngine {
             val tanglish = mutableMapOf<String, String>()
             val tangJson = json.optJSONObject("tanglish_map")
             tangJson?.keys()?.forEach { key ->
-                tanglish[key.lowercase(Locale.ROOT).trim()] = tangJson.getString(key)
+                tanglish[key.lowercase(Locale.ROOT).trim().nfc()] = tangJson.getString(key)
             }
 
             val lexicon = mutableMapOf<String, String>()
             val lexJson = json.optJSONObject("word_lexicon")
             lexJson?.keys()?.forEach { key ->
-                lexicon[key.lowercase(Locale.ROOT).trim()] = lexJson.getString(key)
+                lexicon[key.lowercase(Locale.ROOT).trim().nfc()] = lexJson.getString(key)
             }
 
             DownloadedLanguagePack(
@@ -386,7 +397,7 @@ class OfflineTranslatorEngine {
         targetLanguage: Language,
         sourceLanguage: Language = Language.ENGLISH
     ): String {
-        val trimmed = inputText.trim()
+        val trimmed = inputText.trim().nfc()
         if (trimmed.isBlank()) {
             return trimmed
         }
