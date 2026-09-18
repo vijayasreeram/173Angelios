@@ -57,6 +57,14 @@ data class SemanticMessage(
             stream.write(vBytes.size)
             stream.write(vBytes)
         }
+        // fromBinaryPayload() reads a trailing [2-byte length][UTF-8 bytes] rawText block;
+        // without writing it here the receiver always got rawText = "" and had to
+        // reconstruct the message from intent+entities alone, garbling free-form sentences.
+        val rawTextBytes = rawText.toByteArray(Charsets.UTF_8)
+        val clampedLen = rawTextBytes.size.coerceAtMost(0xFFFF)
+        stream.write((clampedLen shr 8) and 0xFF)
+        stream.write(clampedLen and 0xFF)
+        stream.write(rawTextBytes, 0, clampedLen)
         return stream.toByteArray()
     }
 
