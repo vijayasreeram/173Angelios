@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iTANTRA // Full Tactical UI Design System (12 Screens)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #030712;
+      color: #F8FAFC;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Glow Utilities */
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+    .glow-blue {
+      box-shadow: 0 0 30px rgba(37, 99, 235, 0.45);
+    }
+    .glow-red {
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.55);
+    }
+    .text-glow-cyan {
+      text-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
+    }
+    .text-glow-red {
+      text-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+    }
+    /* Pulsing animations */
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    @keyframes radarSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .pulse-ring {
+      animation: pulseRing 3s ease-in-out infinite;
+    }
+    .radar-sweep {
+      animation: radarSpin 4s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    /* Hide scrollbars */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 bg-[#030611] text-slate-100">
+
+  <!-- Top Showcase Header -->
+  <header class="max-w-[1920px] mx-auto mb-8 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+    <div class="flex items-center gap-4">
+      <!-- ISRO Official Style Logo -->
+      <div class="flex items-center gap-2 bg-[#0A1226] border border-blue-900/40 px-3.5 py-1.5 rounded-xl shadow-lg">
+        <svg class="w-7 h-7" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2L18.5 10H27L20 15L22.5 23L16 18.5L9.5 23L12 15L5 10H13.5L16 2Z" fill="#F97316"/>
+          <path d="M16 8L17.5 13H22L18.5 16L20 20.5L16 18L12 20.5L13.5 16L10 13H14.5L16 8Z" fill="#3B82F6"/>
+        </svg>
+        <div>
+          <span class="text-orange-500 font-bold text-xs tracking-wider">इसरो</span>
+          <span class="text-blue-400 font-bold text-xs tracking-wider ml-1">isro</span>
+        </div>
+      </div>
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+          iTANTRA
+          <span class="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/50">SIH26173 SPECIFICATION</span>
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5">AI-Powered Adaptive Multilingual Semantic Communication & Tactical Mesh System</p>
+      </div>
+    </div>
+
+    <!-- View Mode Selector -->
+    <div class="flex items-center bg-[#070D1B] border border-slate-800 p-1 rounded-xl">
+      <button onclick="setViewMode('grid')" id="btn-grid" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow transition">
+        12-Screen Design Grid
+      </button>
+      <button onclick="setViewMode('interactive')" id="btn-interactive" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">
+        Interactive Device Frame
+      </button>
+      <a href="http://localhost:8080/itantra_runner.html" target="_blank" class="ml-2 px-3 py-1.5 text-xs font-mono font-semibold rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800/60 hover:bg-emerald-900 transition flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Live Runner ▶
+      </a>
+    </div>
+  </header>
+
+  <!-- ========================================================================================= -->
+  <!-- 1. FULL 12-SCREEN DESIGN GRID (Pixel-perfect replica of the user reference image!)       -->
+  <!-- ========================================================================================= -->
+  <div id="view-grid" class="max-w-[1920px] mx-auto">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+
+      <!-- SCREEN 1: Splash / Brand Hero -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-6">
+        <!-- Background space stars & earth glow -->
+        <div class="absolute inset-0 bg-radial from-blue-900/20 via-[#050B17] to-[#02050E] pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-20 -right-20 h-72 rounded-t-[100%] bg-blue-600/20 blur-3xl pointer-events-none"></div>
+        
+        <!-- Top Space Agency Badge -->
+        <div class="relative z-10 flex flex-col items-center mt-8">
+          <div class="flex items-center gap-2 bg-[#091224]/80 backdrop-blur-md px-3 py-1 rounded-full border border-blue-900/50 mb-6">
+            <span class="text-orange-500 font-bold text-xs tracking-wider">इसरो</span>
+            <span class="text-blue-400 font-bold text-xs tracking-wider">isro</span>
+          </div>
+          <h2 class="text-3xl font-black tracking-wider text-white text-center">iTANTRA</h2>
+          <p class="text-[11px] text-cyan-300 font-medium tracking-tight text-center max-w-[200px] mt-2 leading-tight">
+            AI-Powered Adaptive Multilingual Semantic Communication
+          </p>
+        </div>
+
+        <!-- Center Satellite & Earth Orbit Artwork -->
+        <div class="relative z-10 my-auto flex items-center justify-center">
+          <div class="relative w-48 h-48 flex items-center justify-center">
+            <!-- Orbit Path Ring -->
+            <div class="absolute inset-0 rounded-full border border-cyan-500/20 transform rotate-45"></div>
+            <!-- Satellite Graphic -->
+            <svg class="w-28 h-28 transform -rotate-12 drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]" viewBox="0 0 100 100" fill="none">
+              <!-- Solar Panel Left -->
+              <rect x="5" y="42" width="24" height="16" rx="2" fill="#0284C7" stroke="#38BDF8" stroke-width="1.5"/>
+              <line x1="13" y1="42" x2="13" y2="58" stroke="#38BDF8" stroke-width="1"/>
+              <line x1="21" y1="42" x2="21" y2="58" stroke="#38BDF8" stroke-width="1"/>
+              <!-- Solar Panel Right -->
+              <rect x="71" y="42" width="24" height="16" rx="2" fill="#0284C7" stroke="#38BDF8" stroke-width="1.5"/>
+              <line x1="79" y1="42" x2="79" y2="58" stroke="#38BDF8" stroke-width="1"/>
+              <line x1="87" y1="42" x2="87" y2="58" stroke="#38BDF8" stroke-width="1"/>
+              <!-- Satellite Main Body -->
+              <rect x="33" y="38" width="34" height="24" rx="4" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5"/>
+              <!-- Gold Thermal Foil Core -->
+              <rect x="38" y="43" width="24" height="14" rx="2" fill="#F59E0B" opacity="0.9"/>
+              <!-- Dish Antenna -->
+              <path d="M50 38 V26 M40 24 Q50 30 60 24" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <circle cx="50" cy="22" r="2.5" fill="#38BDF8"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Earth Horizon & Footer -->
+        <div class="relative z-10 text-center mb-6">
+          <div class="w-full h-16 bg-gradient-to-t from-blue-600/30 to-transparent rounded-t-[50%] mb-3 border-t border-blue-400/40"></div>
+          <p class="text-xs text-slate-300 font-semibold tracking-wide">Connect. Communicate.</p>
+          <p class="text-xs text-cyan-400 font-bold tracking-wide">Stay Safe. Anywhere.</p>
+        </div>
+      </div>
+
+      <!-- SCREEN 2: Onboarding -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-6">
+        <!-- Top Status Bar Mock -->
+        <div class="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+          <span>9:41</span>
+          <div class="flex items-center gap-1">
+            <span>5G</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <!-- Header Titles -->
+        <div class="mt-4">
+          <h3 class="text-xl font-extrabold text-white leading-tight">Communicate<br/>Without the Internet</h3>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            Your voice becomes meaning. Meaning travels through the strongest available path.
+          </p>
+        </div>
+
+        <!-- Connected 3D Globe with Mesh Beacons -->
+        <div class="my-auto relative flex items-center justify-center">
+          <div class="w-52 h-52 rounded-full bg-gradient-to-b from-blue-900/60 via-slate-900/90 to-blue-950/80 border border-blue-500/40 relative flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.3)] overflow-hidden">
+            <!-- Grid Lines on Globe -->
+            <div class="absolute inset-0 rounded-full border border-cyan-400/20"></div>
+            <div class="absolute inset-4 rounded-full border border-cyan-400/10"></div>
+            <div class="absolute w-full h-[1px] bg-cyan-400/20 top-1/2"></div>
+            <div class="absolute h-full w-[1px] bg-cyan-400/20 left-1/2"></div>
+
+            <!-- Beacons and Phones -->
+            <div class="absolute top-10 left-12 p-1.5 rounded-lg bg-blue-600 text-white shadow-lg flex items-center justify-center animate-bounce">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+            </div>
+            <div class="absolute bottom-12 right-12 p-1.5 rounded-lg bg-cyan-500 text-white shadow-lg flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
+            </div>
+            <!-- Signal Arcs -->
+            <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 200">
+              <path d="M 60 60 Q 100 40 140 140" stroke="#06B6D4" stroke-width="2" stroke-dasharray="4,4" fill="none"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Carousel Indicators & Button -->
+        <div class="flex flex-col items-center gap-4 mb-4">
+          <!-- Dots -->
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-1.5 rounded-full bg-blue-500"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-700"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-700"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-700"></span>
+          </div>
+
+          <!-- Get Started Button -->
+          <button class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold text-xs shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2 transition">
+            Get Started
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- SCREEN 3: Language Selection -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top Nav Header -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <button class="p-1 text-slate-400 hover:text-white">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <span class="text-xs font-bold text-white">Select Your Language</span>
+          <span class="text-[10px] text-cyan-400 font-mono">1/10</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-1 mb-2">Choose one or more languages to enable offline models</p>
+
+        <!-- Language List (10 Indian Languages) -->
+        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1.5 pr-1">
+          <!-- English -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">English</p>
+                <p class="text-[9px] text-slate-400">English</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Hindi -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">हिन्दी</p>
+                <p class="text-[9px] text-slate-400">Hindi</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Tamil (SELECTED) -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-blue-950/60 border-2 border-blue-500 shadow-md shadow-blue-950/50 cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-bold text-cyan-300">தமிழ்</p>
+                <p class="text-[9px] text-blue-300">Tamil</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">✓</div>
+          </div>
+
+          <!-- Telugu -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">తెలుగు</p>
+                <p class="text-[9px] text-slate-400">Telugu</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Kannada -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">ಕನ್ನಡ</p>
+                <p class="text-[9px] text-slate-400">Kannada</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Malayalam -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">മലയാളം</p>
+                <p class="text-[9px] text-slate-400">Malayalam</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Bengali -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">বাংলা</p>
+                <p class="text-[9px] text-slate-400">Bengali</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Marathi -->
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#091124] border border-slate-800 hover:border-blue-700 transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">🇮🇳</span>
+              <div>
+                <p class="text-xs font-semibold text-white">मराठी</p>
+                <p class="text-[9px] text-slate-400">Marathi</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+        </div>
+
+        <!-- Continue Button -->
+        <button class="w-full mt-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold text-xs shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2">
+          Continue
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </div>
+
+      <!-- SCREEN 4: Home (Communication Console) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-black text-white">iTANTRA</h3>
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-[9px] text-emerald-400 font-mono font-semibold">Offline • Mesh Ready</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-[#0E172F] border border-slate-700 flex items-center justify-center text-slate-300">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </div>
+            <div class="w-7 h-7 rounded-full bg-blue-600 border border-blue-400 flex items-center justify-center text-white text-xs font-bold">R</div>
+          </div>
+        </div>
+
+        <!-- Telemetry Card -->
+        <div class="p-3.5 rounded-2xl bg-[#091228] border border-blue-900/40 mt-3">
+          <div class="flex items-center justify-between border-b border-slate-800/60 pb-2 mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+              </div>
+              <div>
+                <p class="text-[10px] text-slate-400">Network Status</p>
+                <p class="text-xs font-bold text-emerald-400">Connected</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-bold text-white">2</span>
+              <span class="text-[10px] text-slate-400 ml-1">Devices Nearby</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+            <div>
+              <p class="text-slate-400 text-[9px]">Signal</p>
+              <p class="font-bold text-emerald-400">Excellent</p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-[9px]">Latency</p>
+              <p class="font-bold text-white font-mono">86 ms</p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-[9px]">Battery</p>
+              <p class="font-bold text-emerald-400 font-mono">78%</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode & Language Chips -->
+        <div class="flex items-center gap-2 mt-2">
+          <div class="flex-1 p-2 rounded-xl bg-[#091228] border border-slate-800 flex items-center gap-2">
+            <span class="text-xs">🇮🇳</span>
+            <div class="overflow-hidden">
+              <p class="text-[9px] text-slate-400">Current Language</p>
+              <p class="text-xs font-bold text-cyan-400 truncate">Tamil</p>
+            </div>
+          </div>
+          <div class="flex-1 p-2 rounded-xl bg-[#091228] border border-slate-800 flex items-center gap-2">
+            <div class="w-5 h-5 rounded bg-blue-950 text-blue-400 flex items-center justify-center">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+            </div>
+            <div class="overflow-hidden">
+              <p class="text-[9px] text-slate-400">Mode</p>
+              <p class="text-xs font-bold text-white truncate">PTT (Walkie)</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Central Giant Glowing PTT Button -->
+        <div class="my-auto flex flex-col items-center justify-center relative">
+          <!-- Outer Pulsing Glow Rings -->
+          <div class="absolute w-48 h-48 rounded-full border border-cyan-500/20 pulse-ring"></div>
+          <div class="absolute w-40 h-40 rounded-full border border-blue-500/30 pulse-ring" style="animation-delay: 1s;"></div>
+          
+          <!-- Interactive Button Body -->
+          <button class="w-32 h-32 rounded-full bg-gradient-to-b from-blue-500 to-cyan-600 p-1 shadow-[0_0_40px_rgba(6,182,212,0.5)] active:scale-95 transition flex flex-col items-center justify-center text-white group">
+            <div class="w-full h-full rounded-full bg-gradient-to-b from-[#0F2954] to-[#081836] flex flex-col items-center justify-center border border-cyan-300/40 group-hover:border-cyan-200">
+              <svg class="w-9 h-9 text-cyan-400 mb-1 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+              <span class="text-[10px] font-black tracking-widest text-cyan-200">HOLD TO TALK</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Footer Tagline -->
+        <p class="text-center text-[10px] text-slate-400 mb-1">Connect. Communicate. Stay Safe.</p>
+
+        <!-- Mock Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 5: Talk (Tactical Walkie-Talkie) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <span class="text-sm font-bold text-white">Talk</span>
+          <div class="p-1 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+        </div>
+
+        <!-- Target Recipient Card -->
+        <div class="p-2.5 rounded-xl bg-[#091228] border border-slate-800 flex items-center justify-between mt-2">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-lg bg-blue-900/50 text-blue-400 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <div>
+              <p class="text-[9px] text-slate-400">To</p>
+              <p class="text-xs font-bold text-white">Team Alpha</p>
+            </div>
+          </div>
+          <button class="px-2.5 py-1 text-[10px] font-semibold bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">Change</button>
+        </div>
+
+        <!-- Live Waveform Section -->
+        <div class="my-auto text-center">
+          <div class="flex items-center justify-center gap-1 h-20 mb-3 px-4">
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.8s_infinite] h-4"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_1.1s_infinite] h-8"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.6s_infinite] h-14"></span>
+            <span class="w-1 bg-cyan-300 rounded-full animate-[pulse_0.9s_infinite] h-18 glow-cyan"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.7s_infinite] h-12"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_1.0s_infinite] h-6"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.5s_infinite] h-10"></span>
+            <span class="w-1 bg-cyan-300 rounded-full animate-[pulse_1.2s_infinite] h-16 glow-cyan"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.7s_infinite] h-8"></span>
+            <span class="w-1 bg-cyan-400 rounded-full animate-[pulse_0.9s_infinite] h-4"></span>
+          </div>
+          <p class="text-sm font-mono font-bold text-white">0:04</p>
+          <p class="text-[10px] text-cyan-400 font-medium">Recording...</p>
+        </div>
+
+        <!-- Live Status Card -->
+        <div class="p-3 rounded-2xl bg-[#081125] border border-blue-900/40 text-[10px] space-y-1.5 mb-3 font-mono">
+          <p class="font-sans font-bold text-[10px] text-slate-300 mb-1 tracking-wider uppercase">Live Status</p>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Voice Activity</span>
+            <span class="text-emerald-400 font-semibold">Detected</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">STT</span>
+            <span class="text-amber-400 font-semibold">Processing</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Compression</span>
+            <span class="text-cyan-400 font-semibold">62% (ISCI)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Packet Size</span>
+            <span class="text-white">248 B</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Link Quality</span>
+            <span class="text-emerald-400">Good</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Estimated Latency</span>
+            <span class="text-white">92 ms</span>
+          </div>
+        </div>
+
+        <!-- Release to Send Button (Red Active) -->
+        <button class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 text-white font-bold text-xs shadow-lg shadow-red-900/50 flex items-center justify-center gap-2 mb-2 active:scale-98">
+          <span class="w-3 h-3 bg-white rounded-sm"></span>
+          Release to Send
+        </button>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 6: Network (Mesh Radar) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <span class="text-sm font-bold text-white">Network</span>
+          <div class="flex items-center gap-2 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+          </div>
+        </div>
+
+        <!-- Segmented Toggle -->
+        <div class="flex bg-[#0A1226] p-1 rounded-xl border border-slate-800 my-2">
+          <button class="flex-1 py-1 text-[10px] font-bold rounded-lg bg-blue-600 text-white shadow">Mesh View</button>
+          <button class="flex-1 py-1 text-[10px] font-medium text-slate-400 hover:text-white">Devices</button>
+        </div>
+
+        <!-- Central Tactical Radar Sweep & Topology -->
+        <div class="relative w-full h-64 flex items-center justify-center my-auto">
+          <!-- Concentric Radar Rings -->
+          <div class="absolute w-60 h-60 rounded-full border border-blue-900/40"></div>
+          <div class="absolute w-44 h-44 rounded-full border border-blue-800/50"></div>
+          <div class="absolute w-28 h-28 rounded-full border border-cyan-500/30"></div>
+          
+          <!-- Radar Sweep Cone -->
+          <div class="absolute w-60 h-60 rounded-full overflow-hidden pointer-events-none radar-sweep">
+            <div class="w-1/2 h-1/2 bg-gradient-to-br from-cyan-500/30 to-transparent origin-bottom-right"></div>
+          </div>
+
+          <!-- Central Node: You (Device A) -->
+          <div class="z-20 flex flex-col items-center">
+            <div class="w-12 h-12 rounded-full bg-cyan-950 border-2 border-cyan-400 glow-cyan flex items-center justify-center text-cyan-300">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+            </div>
+            <span class="text-[9px] font-bold text-white mt-1">You</span>
+            <span class="text-[8px] text-slate-400">(Device A)</span>
+          </div>
+
+          <!-- Connected Node: Device B (Top) -->
+          <div class="absolute top-2 flex flex-col items-center z-10">
+            <div class="w-8 h-8 rounded-full bg-emerald-950 border border-emerald-400 flex items-center justify-center text-emerald-300 text-[10px] font-bold">B</div>
+            <span class="text-[8px] text-white">Device B</span>
+            <span class="text-[7px] text-emerald-400 font-mono">2 hops</span>
+          </div>
+
+          <!-- Connected Node: Device C (Left) -->
+          <div class="absolute left-1 flex flex-col items-center z-10">
+            <div class="w-8 h-8 rounded-full bg-blue-950 border border-blue-400 flex items-center justify-center text-blue-300 text-[10px] font-bold">C</div>
+            <span class="text-[8px] text-white">Device C</span>
+            <span class="text-[7px] text-blue-400 font-mono">1 hop</span>
+          </div>
+
+          <!-- Connected Node: Device C2 (Right) -->
+          <div class="absolute right-1 flex flex-col items-center z-10">
+            <div class="w-8 h-8 rounded-full bg-blue-950 border border-blue-400 flex items-center justify-center text-blue-300 text-[10px] font-bold">C</div>
+            <span class="text-[8px] text-white">Device C</span>
+            <span class="text-[7px] text-blue-400 font-mono">1 hop</span>
+          </div>
+
+          <!-- Connected Node: Device E (Bottom) -->
+          <div class="absolute bottom-2 flex flex-col items-center z-10">
+            <div class="w-8 h-8 rounded-full bg-amber-950 border border-amber-400 flex items-center justify-center text-amber-300 text-[10px] font-bold">E</div>
+            <span class="text-[8px] text-white">Device E</span>
+            <span class="text-[7px] text-amber-400 font-mono">2 hops</span>
+          </div>
+        </div>
+
+        <!-- Network Metrics Card -->
+        <div class="p-3 rounded-2xl bg-[#081125] border border-blue-900/40 font-mono text-[10px] mb-2">
+          <p class="font-sans font-bold text-slate-300 text-[10px] mb-1.5 uppercase tracking-wider">Network Metrics</p>
+          <div class="grid grid-cols-4 gap-1 text-center">
+            <div>
+              <p class="text-slate-400 text-[8px]">RSSI</p>
+              <p class="font-bold text-emerald-400 text-[10px]">-48 dBm</p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-[8px]">Packet Loss</p>
+              <p class="font-bold text-cyan-400 text-[10px]">0.8%</p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-[8px]">Latency</p>
+              <p class="font-bold text-white text-[10px]">86 ms</p>
+            </div>
+            <div>
+              <p class="text-slate-400 text-[8px]">Jitter</p>
+              <p class="font-bold text-white text-[10px]">12 ms</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ROW 2 OF SCREENS (Screens 7 to 12) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 mt-6">
+
+      <!-- SCREEN 7: Emergency (SOS Command Center) -->
+      <div class="h-[720px] rounded-[36px] bg-[#080509] border-2 border-red-900/50 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-red-950/60">
+          <span class="text-sm font-bold text-red-400">Emergency</span>
+          <div class="p-1 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+          </div>
+        </div>
+
+        <!-- Alert Banner -->
+        <div class="p-3 rounded-2xl bg-red-950/40 border border-red-800/60 flex items-start gap-2 mt-2">
+          <div class="p-1 rounded bg-red-900/60 text-red-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div>
+            <p class="text-[10px] font-bold text-red-300">Works Without Network</p>
+            <p class="text-[9px] text-red-200/70 mt-0.5 leading-tight">Emergency packets will be broadcasted to all nearby devices.</p>
+          </div>
+        </div>
+
+        <!-- Central Pulsing Red SOS Button -->
+        <div class="my-auto flex flex-col items-center justify-center relative">
+          <!-- Outer Pulsing Glow Rings -->
+          <div class="absolute w-52 h-52 rounded-full border border-red-600/30 pulse-ring"></div>
+          <div class="absolute w-44 h-44 rounded-full border border-rose-500/40 pulse-ring" style="animation-delay: 1.5s;"></div>
+          
+          <button class="w-36 h-36 rounded-full bg-gradient-to-b from-red-500 to-rose-700 p-1.5 glow-red active:scale-95 transition flex flex-col items-center justify-center text-white">
+            <div class="w-full h-full rounded-full bg-gradient-to-b from-[#450A0A] to-[#1C0404] flex flex-col items-center justify-center border-2 border-red-400">
+              <svg class="w-10 h-10 text-red-400 mb-1 drop-shadow-[0_0_12px_rgba(239,68,68,0.9)]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a2 2 0 00-2 2v1.09A7.002 7.002 0 004 12v5l-2 2v1h20v-1l-2-2v-5a7.002 7.002 0 00-6-6.91V4a2 2 0 00-2-2zm0 20a3 3 0 003-3H9a3 3 0 003 3z"/></svg>
+              <span class="text-xs font-black tracking-widest text-red-200">SOS</span>
+              <span class="text-[8px] text-red-300 font-mono mt-0.5">Press and Hold to Activate</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Hardware Quick Toggles -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="p-2 rounded-xl bg-[#14080B] border border-red-950 flex flex-col items-center text-center">
+            <svg class="w-4 h-4 text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <span class="text-[9px] text-slate-300 font-medium">Flashlight</span>
+            <span class="text-[8px] text-slate-500 font-mono">Off</span>
+          </div>
+          <div class="p-2 rounded-xl bg-[#14080B] border border-red-950 flex flex-col items-center text-center">
+            <svg class="w-4 h-4 text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+            <span class="text-[9px] text-slate-300 font-medium">Siren</span>
+            <span class="text-[8px] text-slate-500 font-mono">Off</span>
+          </div>
+          <div class="p-2 rounded-xl bg-[#14080B] border border-red-950 flex flex-col items-center text-center">
+            <svg class="w-4 h-4 text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            <span class="text-[9px] text-slate-300 font-medium">Vibration</span>
+            <span class="text-[8px] text-slate-500 font-mono">Off</span>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="p-2 rounded-xl bg-red-950/30 border border-red-900/40 flex items-center justify-between text-[10px] text-red-300 my-2">
+          <div class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>SOS not active</span>
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="text-red-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 8: Devices (Mesh Directory) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <span class="text-sm font-bold text-white">Devices</span>
+          <div class="flex items-center gap-2 text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </div>
+        </div>
+
+        <!-- Devices List -->
+        <div class="flex-1 overflow-y-auto no-scrollbar space-y-2 mt-2 pr-1">
+          <!-- Team Alpha -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">R</div>
+              <div>
+                <p class="text-xs font-bold text-white">Team Alpha</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-[9px] text-slate-400 font-mono">Online • Wi-Fi Direct</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-1.5">
+              <span class="text-xs font-mono font-bold text-emerald-400">82%</span>
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+            </div>
+          </div>
+
+          <!-- Device B -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-xs">B</div>
+              <div>
+                <p class="text-xs font-bold text-white">Device B</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-[9px] text-slate-400 font-mono">Online • BLE</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-1.5">
+              <span class="text-xs font-mono font-bold text-emerald-400">67%</span>
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+            </div>
+          </div>
+
+          <!-- Rescue Unit -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-rose-900/60 text-rose-300 font-bold flex items-center justify-center text-xs">R</div>
+              <div>
+                <p class="text-xs font-bold text-white">Rescue Unit</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-[9px] text-slate-400 font-mono">Online • Wi-Fi Direct</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-1.5">
+              <span class="text-xs font-mono font-bold text-emerald-400">74%</span>
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+            </div>
+          </div>
+
+          <!-- Base Station -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-cyan-950 text-cyan-300 font-bold flex items-center justify-center text-xs">S</div>
+              <div>
+                <p class="text-xs font-bold text-white">Base Station</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-[9px] text-slate-400 font-mono">Online • LoRa (Sim)</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-1.5">
+              <span class="text-xs font-mono font-bold text-emerald-400">90%</span>
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+            </div>
+          </div>
+
+          <!-- Device E -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 font-bold flex items-center justify-center text-xs">E</div>
+              <div>
+                <p class="text-xs font-bold text-slate-300">Device E</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span class="text-[9px] text-slate-500 font-mono">Last seen 5 min ago</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex items-center gap-1.5">
+              <span class="text-xs font-mono font-bold text-amber-400">56%</span>
+              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 9: Diagnostics (SIH Judge Telemetry) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <span class="text-sm font-bold text-white">Diagnostics</span>
+          <div class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Live
+          </div>
+        </div>
+
+        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-2">Performance Metrics</p>
+
+        <!-- 4 KPI Cards -->
+        <div class="grid grid-cols-2 gap-2 mt-1">
+          <!-- STT WER -->
+          <div class="p-2.5 rounded-xl bg-[#091228] border border-blue-900/40">
+            <p class="text-[9px] text-slate-400">STT (WER)</p>
+            <p class="text-base font-bold text-emerald-400 font-mono">4.8%</p>
+            <p class="text-[8px] text-slate-500 font-mono">&lt; 8% target</p>
+          </div>
+          <!-- TTS MOS -->
+          <div class="p-2.5 rounded-xl bg-[#091228] border border-blue-900/40">
+            <p class="text-[9px] text-slate-400">TTS (MOS)</p>
+            <p class="text-base font-bold text-emerald-400 font-mono">4.3 / 5</p>
+            <p class="text-[8px] text-slate-500 font-mono">&gt; 4.1 target</p>
+          </div>
+          <!-- Latency -->
+          <div class="p-2.5 rounded-xl bg-[#091228] border border-blue-900/40">
+            <p class="text-[9px] text-slate-400">End-to-End Latency</p>
+            <p class="text-base font-bold text-emerald-400 font-mono">312 ms</p>
+            <p class="text-[8px] text-slate-500 font-mono">&lt; 500 ms target</p>
+          </div>
+          <!-- Packet Success -->
+          <div class="p-2.5 rounded-xl bg-[#091228] border border-blue-900/40">
+            <p class="text-[9px] text-slate-400">Packet Success</p>
+            <p class="text-base font-bold text-emerald-400 font-mono">99.1%</p>
+            <p class="text-[8px] text-slate-500 font-mono">&gt; 98% target</p>
+          </div>
+        </div>
+
+        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-3">System Resources</p>
+
+        <!-- 4 Circular Resource Gauges -->
+        <div class="grid grid-cols-4 gap-2 my-auto text-center">
+          <!-- CPU -->
+          <div class="flex flex-col items-center">
+            <div class="w-11 h-11 rounded-full border-2 border-cyan-400 flex items-center justify-center font-mono text-[10px] font-bold text-cyan-300">
+              32%
+            </div>
+            <span class="text-[9px] text-slate-400 mt-1">CPU</span>
+          </div>
+          <!-- RAM -->
+          <div class="flex flex-col items-center">
+            <div class="w-11 h-11 rounded-full border-2 border-blue-400 flex items-center justify-center font-mono text-[10px] font-bold text-blue-300">
+              48%
+            </div>
+            <span class="text-[9px] text-slate-400 mt-1">RAM</span>
+          </div>
+          <!-- Battery -->
+          <div class="flex flex-col items-center">
+            <div class="w-11 h-11 rounded-full border-2 border-emerald-400 flex items-center justify-center font-mono text-[10px] font-bold text-emerald-300">
+              78%
+            </div>
+            <span class="text-[9px] text-slate-400 mt-1">Battery</span>
+          </div>
+          <!-- Storage -->
+          <div class="flex flex-col items-center">
+            <div class="w-11 h-11 rounded-full border-2 border-indigo-400 flex items-center justify-center font-mono text-[10px] font-bold text-indigo-300">
+              62%
+            </div>
+            <span class="text-[9px] text-slate-400 mt-1">Storage</span>
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 10: Settings -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="pb-2 border-b border-slate-800/60">
+          <span class="text-sm font-bold text-white">Settings</span>
+        </div>
+
+        <!-- Menu Categories -->
+        <div class="space-y-2 mt-2 flex-1">
+          <!-- Language & Models -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-blue-900/40 text-blue-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Language & Models</p>
+                <p class="text-[9px] text-slate-400">Download or manage offline STT/TTS</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+
+          <!-- Communication -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-950 text-cyan-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Communication</p>
+                <p class="text-[9px] text-slate-400">Set default mode, transport, pairing</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+
+          <!-- Battery -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Battery</p>
+                <p class="text-[9px] text-slate-400">Power optimization settings</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+
+          <!-- Security -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-indigo-950 text-indigo-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Security</p>
+                <p class="text-[9px] text-slate-400">Encryption and device identity</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+
+          <!-- Emergency -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-red-950 text-red-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Emergency</p>
+                <p class="text-[9px] text-slate-400">SOS configuration</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+
+          <!-- About -->
+          <div class="p-3 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-blue-700 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">About</p>
+                <p class="text-[9px] text-slate-400 font-mono">Version 1.0.0 • iTANTRA</p>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="flex items-center justify-around pt-2 border-t border-slate-800/80 text-[9px] font-medium text-slate-500">
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>Talk</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Network</div>
+          <div class="flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Messages</div>
+          <div class="text-cyan-400 flex flex-col items-center"><svg class="w-4 h-4 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>More</div>
+        </div>
+      </div>
+
+      <!-- SCREEN 11: Demo Mode (Judge Studio) -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-5">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <span class="text-sm font-bold text-white">Demo Mode</span>
+          </div>
+          <!-- Toggle Switch (ON) -->
+          <div class="w-9 h-5 rounded-full bg-blue-600 p-0.5 flex items-center justify-end cursor-pointer">
+            <div class="w-4 h-4 rounded-full bg-white shadow"></div>
+          </div>
+        </div>
+
+        <p class="text-[10px] text-slate-400 mt-1 mb-2 leading-tight">Simulate different network conditions for demonstration.</p>
+
+        <!-- 4 Degradation Condition Cards -->
+        <div class="space-y-2 flex-1">
+          <!-- Good Network -->
+          <div class="p-2.5 rounded-2xl bg-[#091228] border-2 border-emerald-500 shadow-md flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Good Network</p>
+                <p class="text-[8px] text-emerald-400">High bandwidth, low latency</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px]">✓</div>
+          </div>
+
+          <!-- Medium Network -->
+          <div class="p-2.5 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-amber-500 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-xl bg-amber-950 text-amber-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Medium Network</p>
+                <p class="text-[8px] text-amber-400">Moderate conditions</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Poor Network -->
+          <div class="p-2.5 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-orange-500 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-xl bg-orange-950 text-orange-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 20h.01"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Poor Network</p>
+                <p class="text-[8px] text-orange-400">High loss, limited bandwidth</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+
+          <!-- Emergency Network -->
+          <div class="p-2.5 rounded-2xl bg-[#091228] border border-slate-800 flex items-center justify-between cursor-pointer hover:border-red-500 transition">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-xl bg-red-950 text-red-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-white">Emergency Network</p>
+                <p class="text-[8px] text-red-400">Ultra-low bitrate, semantic only</p>
+              </div>
+            </div>
+            <div class="w-4 h-4 rounded-full border border-slate-600"></div>
+          </div>
+        </div>
+
+        <!-- Start Demo Button -->
+        <button class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-xs shadow-lg shadow-blue-900/40 mt-3">
+          Start Demo
+        </button>
+      </div>
+
+      <!-- SCREEN 12: Outro / Impact Poster -->
+      <div class="h-[720px] rounded-[36px] bg-[#050B17] border-2 border-slate-800/90 shadow-2xl overflow-hidden flex flex-col relative justify-between p-6">
+        <!-- Background Mountain / Space Panorama -->
+        <div class="absolute inset-0 bg-gradient-to-b from-[#050B17] via-[#091228] to-[#040814] pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 right-0 h-44 bg-gradient-to-t from-blue-900/40 via-cyan-900/10 to-transparent pointer-events-none"></div>
+
+        <!-- ISRO Agency Header -->
+        <div class="relative z-10 flex flex-col items-center mt-4">
+          <div class="flex items-center gap-2 bg-[#0A1226] border border-blue-900/50 px-3.5 py-1 rounded-full mb-3">
+            <span class="text-orange-500 font-bold text-xs">इसरो</span>
+            <span class="text-blue-400 font-bold text-xs">isro</span>
+          </div>
+          <h2 class="text-2xl font-black tracking-wider text-white">iTANTRA</h2>
+          <p class="text-[11px] text-cyan-300 font-medium">People. Technology. A Safer Tomorrow.</p>
+        </div>
+
+        <!-- 6 Core Feature Badges Matrix -->
+        <div class="relative z-10 grid grid-cols-2 gap-2 my-auto">
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">Fully Offline</span>
+          </div>
+
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">10 Indian Languages</span>
+          </div>
+
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">Mesh Networking</span>
+          </div>
+
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">Emergency Resilient</span>
+          </div>
+
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">Open Source</span>
+          </div>
+
+          <div class="p-2 rounded-xl bg-[#09142E]/80 border border-blue-800/40 flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            <span class="text-[9px] font-bold text-slate-200">ISRO Ready</span>
+          </div>
+        </div>
+
+        <!-- Mountain Peaks Silhouette & National Motto -->
+        <div class="relative z-10 text-center mb-4">
+          <!-- Mountain Vector Silhouette -->
+          <svg class="w-full h-16 opacity-70 mb-2" viewBox="0 0 300 80" preserveAspectRatio="none">
+            <polygon points="0,80 40,45 80,65 130,25 180,55 220,30 260,60 300,80" fill="#0B1B3D"/>
+            <polygon points="20,80 70,50 110,70 160,35 210,65 250,40 280,70 300,80" fill="#0E2350" opacity="0.6"/>
+          </svg>
+          <p class="text-[10px] text-slate-400">From Innovation to Impact</p>
+          <p class="text-xs font-black text-cyan-300 tracking-wide mt-0.5">A Safer India, A Stronger Tomorrow</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================================= -->
+  <!-- 2. INTERACTIVE DEVICE VIEW (Allows live touch, voice, audio DSP, and screen navigation)   -->
+  <!-- ========================================================================================= -->
+  <div id="view-interactive" class="hidden max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8 py-4">
+    <!-- Interactive Phone Container (390 x 844) -->
+    <div class="w-[390px] h-[844px] rounded-[48px] bg-[#050B17] border-4 border-slate-700 shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col relative">
+      <!-- Dynamic Island / Top Notch -->
+      <div class="h-8 bg-[#050B17] flex items-center justify-between px-7 pt-1 z-30 select-none">
+        <span class="text-xs font-mono font-semibold text-slate-400" id="liveTime">09:41</span>
+        <div class="w-24 h-4 bg-black rounded-full border border-slate-800 flex items-center justify-end px-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+          <span class="text-[9px] text-cyan-400 font-bold">MESH</span>
+          <span>82%</span>
+        </div>
+      </div>
+
+      <!-- Main Interactive Viewport -->
+      <iframe id="interactiveFrame" src="http://localhost:8080/itantra_runner.html" class="w-full flex-1 border-none bg-transparent"></iframe>
+    </div>
+
+    <!-- Screen Navigator Panel -->
+    <div class="flex flex-col gap-3 bg-[#0A1226] border border-slate-800 p-5 rounded-3xl w-full md:w-80 shadow-xl">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2">
+        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
+        Instant Screen Switcher
+      </h3>
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Jump directly into any of the 12 screens inside the live phone frame simulator:
+      </p>
+
+      <div class="grid grid-cols-2 gap-2 text-xs font-medium mt-1">
+        <button onclick="navFrame('home')" class="p-2.5 rounded-xl bg-[#0F1B38] text-cyan-300 border border-cyan-800/40 hover:border-cyan-400 transition text-left">
+          🏠 Home Console
+        </button>
+        <button onclick="navFrame('talk')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          🎙️ PTT Walkie
+        </button>
+        <button onclick="navFrame('network')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          📡 Mesh Radar
+        </button>
+        <button onclick="navFrame('emergency')" class="p-2.5 rounded-xl bg-red-950/40 text-red-300 border border-red-900/40 hover:border-red-500 transition text-left">
+          🚨 SOS Emergency
+        </button>
+        <button onclick="navFrame('demo')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          🧪 Demo Mode
+        </button>
+        <button onclick="navFrame('diagnostics')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          📊 Diagnostics
+        </button>
+        <button onclick="navFrame('messages')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          💬 Messages Log
+        </button>
+        <button onclick="navFrame('settings')" class="p-2.5 rounded-xl bg-[#0F1B38] text-slate-200 border border-slate-800 hover:border-blue-500 transition text-left">
+          ⚙️ Settings
+        </button>
+      </div>
+
+      <div class="mt-4 p-3 rounded-2xl bg-blue-950/40 border border-blue-900/60 text-xs text-blue-200 leading-relaxed">
+        <p class="font-bold text-cyan-300 mb-1">⚡ Real Web Audio & DSP Active</p>
+        Hold the central PTT button to test real-time speech capture, waveform visualization, and 99.94% semantic compression!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setViewMode(mode) {
+      const gridView = document.getElementById('view-grid');
+      const interactiveView = document.getElementById('view-interactive');
+      const btnGrid = document.getElementById('btn-grid');
+      const btnInteractive = document.getElementById('btn-interactive');
+
+      if (mode === 'grid') {
+        gridView.classList.remove('hidden');
+        interactiveView.classList.add('hidden');
+        btnGrid.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow transition';
+        btnInteractive.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition';
+      } else {
+        gridView.classList.add('hidden');
+        interactiveView.classList.remove('hidden');
+        btnGrid.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition';
+        btnInteractive.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow transition';
+      }
+    }
+
+    function navFrame(screen) {
+      const frame = document.getElementById('interactiveFrame');
+      if (frame && frame.contentWindow && frame.contentWindow.switchScreen) {
+        frame.contentWindow.switchScreen(screen);
+      }
+    }
+
+    // Update real clock
+    setInterval(() => {
+      const d = new Date();
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const el = document.getElementById('liveTime');
+      if (el) el.innerText = timeStr;
+    }, 1000);
+  </script>
+</body>
+</html>

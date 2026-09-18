@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">Angelios</string>
+    <string name="app_subtitle">AI-Powered Adaptive Multilingual Semantic Communication</string>
+    <string name="app_tagline">CONNECT. COMMUNICATE. STAY SAFE. ANYWHERE.</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Console</string>
+    <string name="nav_talk">PTT</string>
+    <string name="nav_network">Mesh</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_emergency">SOS</string>
+    <string name="nav_devices">Devices</string>
+    <string name="nav_diagnostics">Diagnostics</string>
+    <string name="nav_demo">Judge Demo</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Communication States -->
+    <string name="state_idle">READY TO COMMUNICATE</string>
+    <string name="state_listening">LISTENING (RECORDING PCM)...</string>
+    <string name="state_processing">SEMANTIC PROCESSING...</string>
+    <string name="state_compressing">ADAPTIVE COMPRESSION...</string>
+    <string name="state_transmitting">TRANSMITTING PACKET...</string>
+    <string name="state_delivered">PACKET DELIVERED (ACK)</string>
+    <string name="state_failed">TRANSMISSION FAILED (RETRYING)</string>
+    <string name="state_emergency">CRITICAL EMERGENCY BROADCAST</string>
+</resources>

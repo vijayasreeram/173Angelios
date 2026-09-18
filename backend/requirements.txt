@@ -1,0 +1,13 @@
+# iTANTRA AI4Bharat ML Pipeline Requirements
+torch>=2.4.0
+torchaudio>=2.4.0
+transformers>=4.40.0
+accelerate>=0.30.0
+onnxruntime>=1.18.0
+onnx>=1.16.0
+soundfile>=0.12.1
+numpy>=1.26.0
+fastapi>=0.111.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+requests>=2.31.0

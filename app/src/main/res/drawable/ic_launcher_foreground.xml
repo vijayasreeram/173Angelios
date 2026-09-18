@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer radar rings -->
+    <path
+        android:strokeColor="#2563EB"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.4"
+        android:pathData="M54,20 A34,34 0 1,0 54,88 A34,34 0 1,0 54,20" />
+    <path
+        android:strokeColor="#06B6D4"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.7"
+        android:pathData="M54,30 A24,24 0 1,0 54,78 A24,24 0 1,0 54,30" />
+    <!-- Tactical Emblem Center -->
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M54,42 L66,62 L42,62 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M54,48 A6,6 0 1,0 54,60 A6,6 0 1,0 54,48" />
+</vector>

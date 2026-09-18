@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>iTANTRA — AKHET Tactical Mesh System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --void:#060305; --deep:#0D0108;
+  --surface:rgba(24,7,14,0.85); --surface-hi:rgba(40,10,22,0.92);
+  --glass:rgba(255,0,60,0.04); --glass-border:rgba(255,0,60,0.18);
+  --neon:#FF003C; --neon-dim:#CC0030; --neon-glow:rgba(255,0,60,0.55);
+  --crimson:#8B0000; --hot:#FF2D55; --amber:#FF6B00;
+  --success:#00FF88; --success-dim:rgba(0,255,136,0.18);
+  --text-primary:#FFE8EE; --text-muted:rgba(255,200,215,0.55); --text-dim:rgba(255,200,215,0.3);
+  --mono:'JetBrains Mono',monospace; --orb:'Orbitron',sans-serif;
+  --radius:12px; --radius-lg:18px;
+  --shadow-neon:0 0 18px rgba(255,0,60,0.4),0 0 40px rgba(255,0,60,0.15);
+  --shadow-card:0 8px 32px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,0,60,0.1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;width:100%;background:var(--void);color:var(--text-primary);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased;}
+body::before{content:'';position:fixed;inset:0;z-index:9999;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.025) 0px,rgba(0,0,0,0.025) 1px,transparent 1px,transparent 3px);pointer-events:none;}
+body::after{content:'';position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,transparent 55%,rgba(6,3,5,0.8) 100%);pointer-events:none;}
+.grid-bg{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(255,0,60,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,0,60,0.04) 1px,transparent 1px);background-size:40px 40px;animation:gridDrift 30s linear infinite;}
+@keyframes gridDrift{from{background-position:0 0}to{background-position:40px 40px}}
+
+.phone-shell{position:relative;z-index:10;width:390px;height:844px;margin:0 auto;margin-top:max(10px,calc((100vh - 844px)/2));background:var(--deep);border-radius:40px;border:1.5px solid rgba(255,0,60,0.25);box-shadow:var(--shadow-neon),0 0 0 6px rgba(255,0,60,0.04),0 32px 80px rgba(0,0,0,0.9);overflow:hidden;display:flex;flex-direction:column;}
+
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:var(--void);border-radius:0 0 18px 18px;z-index:50;display:flex;align-items:center;justify-content:center;gap:8px;}
+.notch-dot{width:10px;height:10px;border-radius:50%;background:var(--void);border:1.5px solid rgba(255,0,60,0.4);}
+.notch-cam{width:14px;height:14px;border-radius:50%;background:#1a0008;border:2px solid rgba(255,0,60,0.3);}
+
+.status-bar{height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px 0 20px;padding-top:10px;font-family:var(--mono);font-size:10px;color:var(--text-muted);letter-spacing:0.05em;border-bottom:1px solid rgba(255,0,60,0.07);}
+.status-right{display:flex;align-items:center;gap:8px;}
+.signal-bars{display:flex;align-items:flex-end;gap:2px;}
+.signal-bar{width:3px;background:var(--neon);border-radius:1px;}
+
+.screen{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;flex-direction:column;padding:0 0 80px;scrollbar-width:thin;scrollbar-color:var(--neon-dim) transparent;}
+.page.active{display:flex;}
+
+.bottom-nav{height:72px;flex-shrink:0;align-items:center;background:rgba(6,3,5,0.96);border-top:1px solid rgba(255,0,60,0.18);backdrop-filter:blur(20px);display:none;}
+.bottom-nav.visible{display:flex;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;padding:8px 0;transition:all 0.2s ease;border:none;background:none;font-family:var(--orb);font-size:8px;font-weight:700;color:var(--text-dim);letter-spacing:0.08em;}
+.nav-item:hover{color:var(--text-muted);}
+.nav-item.active{color:var(--neon);}
+.nav-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+.nav-item.active .nav-icon svg{filter:drop-shadow(0 0 6px var(--neon));}
+
+.glass{background:var(--surface);border:1px solid var(--glass-border);border-radius:var(--radius);backdrop-filter:blur(20px);box-shadow:var(--shadow-card);}
+
+.app-bar{flex-shrink:0;padding:12px 16px 10px;display:flex;align-items:center;gap:10px;background:rgba(6,3,5,0.9);border-bottom:1px solid rgba(255,0,60,0.15);backdrop-filter:blur(12px);}
+.app-bar-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#FF003C,#8B0000);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,0,60,0.5);font-family:var(--orb);font-size:10px;font-weight:900;color:#fff;letter-spacing:-0.02em;flex-shrink:0;}
+.app-bar-info{flex:1;}
+.app-bar-title{font-family:var(--orb);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.05em;}
+.app-bar-sub{font-family:var(--mono);font-size:9px;color:var(--neon);letter-spacing:0.1em;margin-top:1px;}
+.app-bar-badge{padding:3px 8px;border-radius:20px;background:rgba(255,0,60,0.12);border:1px solid rgba(255,0,60,0.3);font-family:var(--mono);font-size:8px;color:var(--neon);letter-spacing:0.06em;}
+
+.section-head{font-family:var(--orb);font-size:9px;font-weight:700;color:var(--neon);letter-spacing:0.15em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin:0 16px 8px;}
+.section-head::before{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,0,60,0.4));max-width:20px;}
+.section-head::after{content:'';flex:1;height:1px;background:linear-gradient(270deg,transparent,rgba(255,0,60,0.4));}
+
+/* ONBOARDING */
+#page-onboarding{background:linear-gradient(180deg,rgba(139,0,0,0.08) 0%,transparent 60%);padding:0 20px 40px;gap:0;overflow-y:auto;}
+.onboard-hero{display:flex;flex-direction:column;align-items:center;padding:52px 0 28px;gap:12px;}
+.akhet-logo{width:88px;height:88px;border-radius:20px;background:linear-gradient(135deg,#FF003C 0%,#8B0000 60%,#3d0011 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(255,0,60,0.6),0 0 80px rgba(255,0,60,0.2),inset 0 1px 0 rgba(255,200,200,0.15);animation:logoPulse 3s ease-in-out infinite;}
+@keyframes logoPulse{0%,100%{box-shadow:0 0 30px rgba(255,0,60,0.6),0 0 80px rgba(255,0,60,0.2)}50%{box-shadow:0 0 50px rgba(255,0,60,0.9),0 0 120px rgba(255,0,60,0.35)}}
+.akhet-logo-text{font-family:var(--orb);font-size:22px;font-weight:900;color:#fff;letter-spacing:0.04em;text-shadow:0 0 14px rgba(255,255,255,0.4);}
+.akhet-tagline{font-family:var(--orb);font-size:9px;font-weight:700;color:var(--neon);letter-spacing:0.18em;text-transform:uppercase;text-align:center;text-shadow:0 0 10px var(--neon-glow);}
+.akhet-sub{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;letter-spacing:0.05em;}
+.form-group{margin-bottom:16px;}
+.form-label{display:block;margin-bottom:6px;font-family:var(--mono);font-size:9px;font-weight:500;color:var(--neon);letter-spacing:0.12em;text-transform:uppercase;}
+.form-input{width:100%;padding:12px 14px;background:rgba(255,0,60,0.05);border:1px solid rgba(255,0,60,0.2);border-radius:var(--radius);color:var(--text-primary);font-family:var(--mono);font-size:13px;outline:none;transition:all 0.2s;caret-color:var(--neon);}
+.form-input:focus{border-color:rgba(255,0,60,0.55);background:rgba(255,0,60,0.08);box-shadow:0 0 0 2px rgba(255,0,60,0.12),0 0 18px rgba(255,0,60,0.1);}
+.form-input::placeholder{color:var(--text-dim);}
+.chip-group{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{padding:7px 14px;border-radius:20px;cursor:pointer;background:rgba(255,0,60,0.05);border:1px solid rgba(255,0,60,0.2);font-family:var(--mono);font-size:11px;color:var(--text-muted);transition:all 0.15s;user-select:none;}
+.chip:hover{border-color:rgba(255,0,60,0.45);color:var(--text-primary);}
+.chip.selected{background:rgba(255,0,60,0.18);border-color:var(--neon);color:var(--neon);box-shadow:0 0 10px rgba(255,0,60,0.2);}
+.lang-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.lang-btn{padding:10px 8px;border-radius:10px;cursor:pointer;text-align:left;background:rgba(255,0,60,0.04);border:1px solid rgba(255,0,60,0.15);font-family:var(--mono);font-size:11px;color:var(--text-muted);transition:all 0.15s;display:flex;align-items:center;gap:6px;user-select:none;}
+.lang-btn:hover{border-color:rgba(255,0,60,0.35);color:var(--text-primary);}
+.lang-btn.selected{background:rgba(255,0,60,0.12);border-color:var(--neon);color:var(--neon);box-shadow:0 0 8px rgba(255,0,60,0.15);}
+.lang-native{font-size:9px;color:var(--text-dim);}
+.lang-btn.selected .lang-native{color:rgba(255,0,60,0.7);}
+.btn-primary{width:100%;padding:15px;margin-top:8px;background:linear-gradient(135deg,var(--neon),var(--crimson));border:none;border-radius:var(--radius);cursor:pointer;font-family:var(--orb);font-size:12px;font-weight:700;color:#fff;letter-spacing:0.12em;text-transform:uppercase;box-shadow:var(--shadow-neon);transition:all 0.2s;position:relative;overflow:hidden;}
+.btn-primary::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.1),transparent);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 0 28px rgba(255,0,60,0.7),0 0 60px rgba(255,0,60,0.25);}
+.btn-primary:active{transform:translateY(0);}
+
+/* CONVO */
+#page-convo{gap:0;}
+.ptt-area{display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 16px;}
+.ptt-btn{width:110px;height:110px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF2D55,#8B0000);border:3px solid rgba(255,0,60,0.4);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 30px rgba(255,0,60,0.5),0 0 60px rgba(255,0,60,0.2),inset 0 2px 0 rgba(255,150,150,0.2);transition:all 0.15s;user-select:none;outline:none;animation:pttIdle 4s ease-in-out infinite;}
+@keyframes pttIdle{0%,100%{box-shadow:0 0 30px rgba(255,0,60,0.5),0 0 60px rgba(255,0,60,0.2),inset 0 2px 0 rgba(255,150,150,0.2)}50%{box-shadow:0 0 40px rgba(255,0,60,0.7),0 0 80px rgba(255,0,60,0.3),inset 0 2px 0 rgba(255,150,150,0.2)}}
+.ptt-btn:active,.ptt-btn.recording{background:radial-gradient(circle at 35% 35%,#FF6B00,#FF003C);box-shadow:0 0 50px rgba(255,107,0,0.8),0 0 100px rgba(255,0,60,0.4),inset 0 2px 0 rgba(255,200,150,0.3);transform:scale(0.97);animation:none;}
+.ptt-icon{width:32px;height:32px;color:#fff;}
+.ptt-label{font-family:var(--orb);font-size:8px;font-weight:700;color:rgba(255,255,255,0.9);letter-spacing:0.1em;}
+.transcript-area{margin:0 16px 12px;padding:14px;min-height:80px;max-height:80px;overflow-y:auto;}
+.transcript-label{font-family:var(--mono);font-size:8px;color:var(--neon);letter-spacing:0.1em;margin-bottom:8px;text-transform:uppercase;}
+.transcript-text{font-family:var(--mono);font-size:12px;color:var(--text-primary);line-height:1.6;}
+.transcript-text .word-new{color:var(--neon);animation:wordFade 1s ease forwards;}
+@keyframes wordFade{from{color:var(--neon);text-shadow:0 0 8px var(--neon)}to{color:var(--text-primary);text-shadow:none}}
+.precommands-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 16px 16px;}
+.precmd-btn{padding:10px 8px;border-radius:10px;cursor:pointer;background:rgba(255,0,60,0.05);border:1px solid rgba(255,0,60,0.18);font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:left;transition:all 0.15s;line-height:1.4;display:flex;align-items:center;gap:6px;}
+.precmd-btn:hover{border-color:var(--neon);color:var(--text-primary);background:rgba(255,0,60,0.1);}
+.precmd-btn:active{background:rgba(255,0,60,0.18);transform:scale(0.98);}
+.convo-feed{margin:0 16px 8px;}
+.convo-msg{display:flex;gap:8px;margin-bottom:10px;animation:msgIn 0.2s ease;}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.convo-msg.outgoing{flex-direction:row-reverse;}
+.msg-avatar{width:28px;height:28px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,var(--neon),var(--crimson));display:flex;align-items:center;justify-content:center;font-family:var(--orb);font-size:9px;font-weight:700;color:#fff;}
+.msg-bubble{max-width:70%;padding:8px 12px;background:var(--surface);border:1px solid var(--glass-border);border-radius:12px;font-family:var(--mono);font-size:11px;color:var(--text-primary);line-height:1.5;}
+.convo-msg.outgoing .msg-bubble{background:rgba(255,0,60,0.12);border-color:rgba(255,0,60,0.28);}
+.msg-meta{font-size:8px;color:var(--text-dim);margin-top:3px;letter-spacing:0.05em;}
+.recording-indicator{display:none;flex-direction:row;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--neon);letter-spacing:0.1em;justify-content:center;margin-top:6px;}
+.recording-indicator.active{display:flex;}
+.wave-bar{width:3px;border-radius:2px;background:var(--neon);animation:wave 1s ease-in-out infinite;}
+.wave-bar:nth-child(1){height:8px;animation-delay:0s}.wave-bar:nth-child(2){height:14px;animation-delay:0.1s}.wave-bar:nth-child(3){height:20px;animation-delay:0.2s}.wave-bar:nth-child(4){height:14px;animation-delay:0.3s}.wave-bar:nth-child(5){height:8px;animation-delay:0.4s}
+@keyframes wave{0%,100%{transform:scaleY(0.5);opacity:0.5}50%{transform:scaleY(1.2);opacity:1}}
+
+/* SOS */
+#page-sos{align-items:center;padding:20px 20px 100px;gap:0;}
+.sos-title{font-family:var(--orb);font-size:18px;font-weight:900;color:var(--neon);letter-spacing:0.12em;text-transform:uppercase;text-shadow:0 0 20px var(--neon-glow);margin-bottom:4px;text-align:center;margin-top:20px;}
+.sos-sub{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center;letter-spacing:0.08em;margin-bottom:22px;max-width:280px;line-height:1.5;}
+.sos-ring-wrap{position:relative;width:200px;height:200px;margin-bottom:24px;}
+.sos-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,0,60,0.3);animation:sosRing 2s ease-out infinite;}
+.sos-ring:nth-child(2){animation-delay:0.66s;}.sos-ring:nth-child(3){animation-delay:1.33s;}
+@keyframes sosRing{0%{transform:scale(0.6);opacity:0.9;border-color:rgba(255,0,60,0.6)}100%{transform:scale(1.1);opacity:0;border-color:rgba(255,0,60,0)}}
+.sos-btn{position:absolute;inset:30px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF003C,#6B0019);border:3px solid rgba(255,0,60,0.6);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 0 40px rgba(255,0,60,0.7),0 0 80px rgba(255,0,60,0.3);transition:all 0.15s;user-select:none;outline:none;}
+.sos-btn:active{transform:scale(0.96);box-shadow:0 0 60px rgba(255,0,60,1),0 0 120px rgba(255,0,60,0.5);}
+.sos-btn-label{font-family:var(--orb);font-size:20px;font-weight:900;color:#fff;letter-spacing:0.1em;}
+.sos-btn-sub{font-family:var(--mono);font-size:8px;color:rgba(255,200,200,0.8);letter-spacing:0.1em;}
+.sos-status-card{width:100%;padding:14px;}
+.sos-feed{width:100%;margin-top:16px;}
+.sos-alert{padding:12px 14px;border-radius:10px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;animation:msgIn 0.3s ease;}
+.sos-alert.active{background:rgba(255,0,60,0.12);border:1px solid rgba(255,0,60,0.35);}
+.sos-alert.resolved{background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);}
+.sos-alert-text{font-family:var(--mono);font-size:11px;color:var(--text-primary);line-height:1.5;}
+.sos-alert-meta{font-size:9px;color:var(--text-dim);margin-top:3px;}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.alert-dot.red{background:var(--neon);box-shadow:0 0 6px var(--neon);animation:blink 1s ease-in-out infinite;}
+.alert-dot.green{background:var(--success);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* MESH */
+#page-mesh{gap:0;}
+.mesh-header-info{display:flex;align-items:center;justify-content:space-between;margin:12px 16px 0;}
+.device-count-badge{padding:6px 14px;border-radius:20px;background:rgba(255,0,60,0.12);border:1px solid rgba(255,0,60,0.3);font-family:var(--orb);font-size:10px;font-weight:700;color:var(--neon);letter-spacing:0.06em;}
+.net-status{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--success);}
+.net-dot{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:blink 2s ease infinite;}
+.radar-wrap{position:relative;width:220px;height:220px;margin:14px auto;}
+.radar-circle{position:absolute;border-radius:50%;border:1px solid rgba(255,0,60,0.2);top:50%;left:50%;transform:translate(-50%,-50%);}
+.radar-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(255,0,60,0.35) 0deg,transparent 60deg);animation:radarSpin 2.5s linear infinite;}
+@keyframes radarSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.radar-crosshair{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.radar-h,.radar-v{position:absolute;background:rgba(255,0,60,0.18);}
+.radar-h{height:1px;width:100%;}.radar-v{width:1px;height:100%;}
+.radar-center{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--neon);box-shadow:0 0 10px var(--neon);top:50%;left:50%;transform:translate(-50%,-50%);}
+.radar-node{position:absolute;width:10px;height:10px;border-radius:50%;background:#FF6B00;box-shadow:0 0 8px rgba(255,107,0,0.8);transform:translate(-50%,-50%);cursor:pointer;transition:all 0.2s;animation:nodePulse 2s ease-in-out infinite;}
+.radar-node:hover,.radar-node.selected{background:var(--success);box-shadow:0 0 12px rgba(0,255,136,0.8);animation:none;}
+@keyframes nodePulse{0%,100%{box-shadow:0 0 8px rgba(255,107,0,0.8)}50%{box-shadow:0 0 14px rgba(255,107,0,1)}}
+.peer-list{margin:0 16px;gap:8px;display:flex;flex-direction:column;margin-bottom:8px;}
+.peer-item{padding:10px 14px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:all 0.15s;}
+.peer-item:hover{border-color:rgba(255,0,60,0.4);background:rgba(255,0,60,0.08);}
+.peer-item.selected{border-color:var(--success);background:rgba(0,255,136,0.06);}
+.peer-avatar{width:36px;height:36px;border-radius:9px;flex-shrink:0;background:linear-gradient(135deg,#FF6B00,#CC0030);display:flex;align-items:center;justify-content:center;font-family:var(--orb);font-size:13px;font-weight:700;color:#fff;}
+.peer-info{flex:1;}
+.peer-name{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text-primary);}
+.peer-meta{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:2px;}
+.peer-signal{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.signal-val{font-family:var(--mono);font-size:8px;color:var(--success);}
+.private-banner{margin:8px 16px;padding:10px 14px;border-radius:10px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.25);display:none;align-items:center;justify-content:space-between;}
+.private-banner.visible{display:flex;}
+.private-banner-text{font-family:var(--mono);font-size:10px;color:var(--success);}
+.clear-btn{padding:4px 10px;border-radius:6px;cursor:pointer;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);font-family:var(--mono);font-size:9px;color:var(--success);transition:all 0.15s;}
+.clear-btn:hover{background:rgba(0,255,136,0.2);}
+
+/* PROFILE */
+#page-profile{padding:0 16px 100px;gap:16px;}
+.profile-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 0 8px;}
+.profile-avatar{width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,#FF003C,#8B0000);display:flex;align-items:center;justify-content:center;font-family:var(--orb);font-size:28px;font-weight:900;color:#fff;box-shadow:0 0 24px rgba(255,0,60,0.5);}
+.profile-name{font-family:var(--orb);font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:0.04em;}
+.profile-sub{font-family:var(--mono);font-size:9px;color:var(--neon);letter-spacing:0.1em;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:8px;border-bottom:1px solid rgba(255,0,60,0.08);}
+.info-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.08em;}
+.info-val{font-family:var(--mono);font-size:12px;color:var(--text-primary);font-weight:500;}
+.lang-grid-sm{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:2px;}
+.lang-sm{padding:8px 10px;border-radius:8px;cursor:pointer;background:rgba(255,0,60,0.04);border:1px solid rgba(255,0,60,0.12);font-family:var(--mono);font-size:10px;color:var(--text-muted);transition:all 0.15s;display:flex;flex-direction:column;gap:2px;user-select:none;}
+.lang-sm:hover{border-color:rgba(255,0,60,0.3);color:var(--text-primary);}
+.lang-sm.active{background:rgba(255,0,60,0.12);border-color:var(--neon);color:var(--neon);}
+.lang-sm span{font-size:8px;color:var(--text-dim);}
+.lang-sm.active span{color:rgba(255,0,60,0.65);}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.stat-card{padding:12px 10px;text-align:center;}
+.stat-val{font-family:var(--orb);font-size:18px;font-weight:700;color:var(--neon);display:block;}
+.stat-lbl{font-family:var(--mono);font-size:8px;color:var(--text-dim);letter-spacing:0.06em;margin-top:4px;display:block;}
+
+/* TOAST */
+.toast-container{position:absolute;top:54px;left:16px;right:16px;z-index:100;pointer-events:none;}
+.toast{padding:10px 14px;border-radius:10px;margin-bottom:6px;font-family:var(--mono);font-size:11px;color:var(--text-primary);display:flex;align-items:center;gap:8px;backdrop-filter:blur(12px);animation:toastIn 0.2s ease,toastOut 0.3s ease 2.7s forwards;pointer-events:all;}
+.toast.info{background:rgba(24,7,14,0.9);border:1px solid rgba(255,0,60,0.3);}
+.toast.success{background:rgba(0,20,10,0.9);border:1px solid rgba(0,255,136,0.3);color:var(--success);}
+.toast.sos{background:rgba(60,0,0,0.95);border:1px solid var(--neon);color:var(--neon);}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,0,60,0.3);border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="phone-shell">
+  <div class="notch">
+    <div class="notch-dot"></div><div class="notch-cam"></div><div class="notch-dot"></div>
+  </div>
+  <div class="status-bar">
+    <span id="statusTime">09:41</span>
+    <div class="status-right">
+      <div class="signal-bars">
+        <div class="signal-bar" style="height:4px"></div>
+        <div class="signal-bar" style="height:7px"></div>
+        <div class="signal-bar" style="height:10px"></div>
+        <div class="signal-bar" style="height:13px"></div>
+      </div>
+      <span>WiFi</span><span>87%</span>
+    </div>
+  </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="screen">
+
+    <!-- ONBOARDING -->
+    <div class="page active" id="page-onboarding">
+      <div class="onboard-hero">
+        <div class="akhet-logo"><span class="akhet-logo-text">AKHET</span></div>
+        <div class="akhet-tagline">Turning Signals Into Survival</div>
+        <div class="akhet-sub">iTANTRA · Multilingual Tactical Mesh v2.0</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">OPERATOR CALL-SIGN / NAME</label>
+        <input class="form-input" id="inputName" type="text" placeholder="Enter your name..." maxlength="32"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">GENDER</label>
+        <div class="chip-group">
+          <div class="chip" onclick="selectGender(this,'Male')">Male</div>
+          <div class="chip" onclick="selectGender(this,'Female')">Female</div>
+          <div class="chip" onclick="selectGender(this,'Other')">Other</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PREFERRED LANGUAGE</label>
+        <div class="lang-grid">
+          <div class="lang-btn" onclick="selectLang(this,'Hindi','hin_Deva')"><div><div>Hindi</div><div class="lang-native">हिन्दी</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Gujarati','guj_Gujr')"><div><div>Gujarati</div><div class="lang-native">ગુજરાતી</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Marathi','mar_Deva')"><div><div>Marathi</div><div class="lang-native">मराठी</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Kannada','kan_Knda')"><div><div>Kannada</div><div class="lang-native">ಕನ್ನಡ</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Malayalam','mal_Mlym')"><div><div>Malayalam</div><div class="lang-native">മലയാളം</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Tamil','tam_Taml')"><div><div>Tamil</div><div class="lang-native">தமிழ்</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Telugu','tel_Telu')"><div><div>Telugu</div><div class="lang-native">తెలుగు</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Odia','ory_Orya')"><div><div>Odia</div><div class="lang-native">ଓଡ଼ିଆ</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'Bengali','ben_Beng')"><div><div>Bengali</div><div class="lang-native">বাংলা</div></div></div>
+          <div class="lang-btn" onclick="selectLang(this,'English','eng_Latn')"><div><div>English</div><div class="lang-native">English</div></div></div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="initializeNode()">&#9889; INITIALIZE TACTICAL NODE</button>
+    </div>
+
+    <!-- CONVO -->
+    <div class="page" id="page-convo">
+      <div class="app-bar">
+        <div class="app-bar-logo">AK</div>
+        <div class="app-bar-info">
+          <div class="app-bar-title" id="bar-callsign">OPERATOR</div>
+          <div class="app-bar-sub" id="bar-lang">HINDI · BROADCAST MODE</div>
+        </div>
+        <div class="app-bar-badge" id="bar-peers">0 PEERS</div>
+      </div>
+      <div class="ptt-area">
+        <button class="ptt-btn" id="pttBtn" onmousedown="startPTT()" onmouseup="stopPTT()" ontouchstart="startPTT(event)" ontouchend="stopPTT()">
+          <svg class="ptt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <span class="ptt-label" id="pttLabel">PUSH TO TALK</span>
+        </button>
+        <div class="recording-indicator" id="recIndicator">
+          <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          <span>TRANSMITTING</span>
+        </div>
+      </div>
+      <div class="glass transcript-area">
+        <div class="transcript-label">LIVE TRANSCRIPT</div>
+        <div class="transcript-text" id="transcriptText">&#8212; Awaiting voice input &#8212;</div>
+      </div>
+      <div class="section-head">PRE-DEFINED COMMANDS</div>
+      <div class="precommands-grid">
+        <button class="precmd-btn" onclick="sendPreCmd('We are safe. All units secure.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FF88" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>We are safe
+        </button>
+        <button class="precmd-btn" onclick="sendPreCmd('Where are you? Report your position.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2m-3.5-6.5-1.4 1.4M6.9 17.1l-1.4 1.4M17.1 17.1l1.4 1.4M6.9 6.9 5.5 5.5"/></svg>Where are you?
+        </button>
+        <button class="precmd-btn" onclick="sendPreCmd('We are good to go. Mission continues.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF003C" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Good to go
+        </button>
+        <button class="precmd-btn" onclick="sendPreCmd('Need assistance. Send backup immediately.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>Need backup
+        </button>
+        <button class="precmd-btn" onclick="sendPreCmd('Area is clear. No threats detected.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FF88" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Area clear
+        </button>
+        <button class="precmd-btn" onclick="sendPreCmd('Maintain radio silence. Switch to mesh.')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,200,215,0.55)" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Radio silence
+        </button>
+      </div>
+      <div class="section-head">COMM LOG</div>
+      <div class="convo-feed" id="convoFeed">
+        <div class="convo-msg">
+          <div class="msg-avatar">A2</div>
+          <div><div class="msg-bubble">All units report status. Grid 4-4 is secured.</div><div class="msg-meta">ALPHA-2 · 09:32 · Hindi</div></div>
+        </div>
+        <div class="convo-msg outgoing">
+          <div class="msg-avatar">ME</div>
+          <div><div class="msg-bubble">Roger. Moving to waypoint Bravo.</div><div class="msg-meta">YOU · 09:33 · English</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOS -->
+    <div class="page" id="page-sos">
+      <div class="app-bar">
+        <div class="app-bar-logo" style="background:linear-gradient(135deg,#FF003C,#600000);">!</div>
+        <div class="app-bar-info">
+          <div class="app-bar-title">EMERGENCY BROADCAST</div>
+          <div class="app-bar-sub">SOS &#8212; NETWORK-WIDE ALERT</div>
+        </div>
+        <div class="app-bar-badge">ALWAYS ON</div>
+      </div>
+      <div class="sos-title">&#9888; SOS SYSTEM</div>
+      <div class="sos-sub">Sends emergency broadcast to ALL connected nodes on the Wi-Fi mesh network instantly. Ignores all private channels.</div>
+      <div class="sos-ring-wrap">
+        <div class="sos-ring"></div><div class="sos-ring"></div><div class="sos-ring"></div>
+        <button class="sos-btn" onclick="triggerSOS()">
+          <div class="sos-btn-label">SOS</div>
+          <div class="sos-btn-sub">BROADCAST</div>
+        </button>
+      </div>
+      <div class="glass sos-status-card">
+        <div class="section-head" style="margin:0 0 10px;">NETWORK STATUS</div>
+        <div class="info-row" style="padding:8px 0;"><span class="info-label">CONNECTED NODES</span><span class="info-val" id="sosNodeCount" style="color:var(--success);">4</span></div>
+        <div class="info-row" style="padding:8px 0;"><span class="info-label">BROADCAST RANGE</span><span class="info-val">All Nodes (192.168.x.x)</span></div>
+        <div class="info-row" style="padding:8px 0;border:none;"><span class="info-label">SOS PRIORITY</span><span class="info-val" style="color:var(--neon);">EMERGENCY &#8212; OVERRIDE ALL</span></div>
+      </div>
+      <div class="section-head" style="margin-top:12px;">ALERT LOG</div>
+      <div class="sos-feed" id="sosFeed">
+        <div class="sos-alert resolved">
+          <div class="alert-dot green"></div>
+          <div><div class="sos-alert-text">ALPHA-3 emergency cleared. All units safe.</div><div class="sos-alert-meta">09:15 · Resolved</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESH -->
+    <div class="page" id="page-mesh">
+      <div class="app-bar">
+        <div class="app-bar-logo" style="background:linear-gradient(135deg,#FF6B00,#8B0000);">MN</div>
+        <div class="app-bar-info">
+          <div class="app-bar-title">MESH NETWORK</div>
+          <div class="app-bar-sub" id="meshSubtitle">BROADCAST MODE &#8212; ALL NODES</div>
+        </div>
+        <div class="app-bar-badge" id="meshBadge">4 NODES</div>
+      </div>
+      <div class="mesh-header-info">
+        <div class="device-count-badge" id="deviceCountBadge">CONNECTED DEVICES: 4</div>
+        <div class="net-status"><div class="net-dot"></div><span>ONLINE</span></div>
+      </div>
+      <div class="radar-wrap">
+        <div class="radar-circle" style="width:200px;height:200px;"></div>
+        <div class="radar-circle" style="width:140px;height:140px;"></div>
+        <div class="radar-circle" style="width:80px;height:80px;"></div>
+        <div class="radar-sweep"></div>
+        <div class="radar-crosshair"><div class="radar-h"></div><div class="radar-v"></div></div>
+        <div class="radar-center"></div>
+        <div class="radar-node" id="rn0" style="top:30%;left:65%" onclick="selectPeer(0)"></div>
+        <div class="radar-node" id="rn1" style="top:65%;left:35%" onclick="selectPeer(1)"></div>
+        <div class="radar-node" id="rn2" style="top:22%;left:30%" onclick="selectPeer(2)"></div>
+        <div class="radar-node" id="rn3" style="top:72%;left:72%" onclick="selectPeer(3)"></div>
+      </div>
+      <div class="private-banner" id="privateBanner">
+        <div class="private-banner-text" id="privateBannerText"></div>
+        <button class="clear-btn" onclick="clearPrivate()">CLEAR</button>
+      </div>
+      <div class="section-head">CONNECTED PEERS</div>
+      <div class="peer-list" id="peerList"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="page" id="page-profile">
+      <div class="app-bar">
+        <div class="app-bar-logo">PR</div>
+        <div class="app-bar-info">
+          <div class="app-bar-title">OPERATOR PROFILE</div>
+          <div class="app-bar-sub">NODE CONFIGURATION</div>
+        </div>
+      </div>
+      <div class="profile-hero">
+        <div class="profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-name" id="profileName">&#8212;</div>
+        <div class="profile-sub" id="profileLangBadge">LANGUAGE: ENGLISH</div>
+      </div>
+      <div class="glass" style="padding:4px 0;">
+        <div class="info-row"><span class="info-label">NAME</span><span class="info-val" id="profileNameVal">&#8212;</span></div>
+        <div class="info-row"><span class="info-label">GENDER</span><span class="info-val" id="profileGenderVal">&#8212;</span></div>
+        <div class="info-row" style="border:none;"><span class="info-label">NODE ID</span><span class="info-val" style="color:var(--text-dim);font-size:10px;" id="profileNodeId">&#8212;</span></div>
+      </div>
+      <div class="section-head" style="margin-top:4px;">MISSION STATS</div>
+      <div class="stat-row">
+        <div class="glass stat-card"><span class="stat-val" id="statMsgs">0</span><span class="stat-lbl">MESSAGES</span></div>
+        <div class="glass stat-card"><span class="stat-val" id="statSos">0</span><span class="stat-lbl">SOS SENT</span></div>
+        <div class="glass stat-card"><span class="stat-val">4</span><span class="stat-lbl">PEERS</span></div>
+      </div>
+      <div class="section-head" style="margin-top:4px;">SWITCH LANGUAGE</div>
+      <div class="lang-grid-sm" id="profileLangGrid"></div>
+      <div style="margin-top:16px;">
+        <button class="btn-primary" onclick="saveProfile()" style="font-size:11px;padding:12px;">SAVE CONFIGURATION</button>
+      </div>
+    </div>
+
+  </div>
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-item active" id="nav-convo" onclick="showPage('convo')">
+      <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>CONVO
+    </button>
+    <button class="nav-item" id="nav-sos" onclick="showPage('sos')">
+      <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>SOS
+    </button>
+    <button class="nav-item" id="nav-mesh" onclick="showPage('mesh')">
+      <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><line x1="12" y1="7" x2="5" y2="17"/><line x1="12" y1="7" x2="19" y2="17"/><line x1="5" y1="19" x2="19" y2="19"/></svg></div>MESH
+    </button>
+    <button class="nav-item" id="nav-profile" onclick="showPage('profile')">
+      <div class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>PROFILE
+    </button>
+  </nav>
+</div>
+
+<script>
+const state={name:'',gender:'',lang:'English',langCode:'eng_Latn',msgCount:0,sosCount:0,activePeer:null,nodeId:'NODE-'+Math.floor(Math.random()*9000+1000),peers:[{id:'ALPHA-2',lang:'Hindi',signal:'-42 dBm',ip:'192.168.1.102',initial:'A2'},{id:'BRAVO-1',lang:'Tamil',signal:'-67 dBm',ip:'192.168.1.103',initial:'B1'},{id:'CHARLIE-3',lang:'Telugu',signal:'-55 dBm',ip:'192.168.1.104',initial:'C3'},{id:'DELTA-4',lang:'English',signal:'-78 dBm',ip:'192.168.1.105',initial:'D4'}]};
+const LANGS=[{name:'Hindi',code:'hin_Deva',native:'हिन्दी'},{name:'Gujarati',code:'guj_Gujr',native:'ગુજરાતી'},{name:'Marathi',code:'mar_Deva',native:'मराठी'},{name:'Kannada',code:'kan_Knda',native:'ಕನ್ನಡ'},{name:'Malayalam',code:'mal_Mlym',native:'മലയാളം'},{name:'Tamil',code:'tam_Taml',native:'தமிழ்'},{name:'Telugu',code:'tel_Telu',native:'తెలుగు'},{name:'Odia',code:'ory_Orya',native:'ଓଡ଼ିଆ'},{name:'Bengali',code:'ben_Beng',native:'বাংলা'},{name:'English',code:'eng_Latn',native:'English'}];
+let selGender='',selLang='English',selLangCode='eng_Latn';
+
+function selectGender(el,val){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');selGender=val;}
+function selectLang(el,name,code){document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('selected'));el.classList.add('selected');selLang=name;selLangCode=code;}
+function initializeNode(){
+  const name=document.getElementById('inputName').value.trim();
+  if(!name){toast('Enter your name / call-sign','info');return;}
+  if(!selGender){toast('Select your gender','info');return;}
+  if(!selLang){toast('Select a language','info');return;}
+  state.name=name;state.gender=selGender;state.lang=selLang;state.langCode=selLangCode;
+  buildProfile();buildPeerList();buildProfileLangGrid();
+  document.getElementById('bottomNav').classList.add('visible');
+  showPage('convo');
+  toast('NODE INITIALIZED · TACTICAL MESH ONLINE','success');
+}
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const nav=document.getElementById('nav-'+name);
+  if(nav) nav.classList.add('active');
+}
+function buildProfile(){
+  const init=state.name.charAt(0).toUpperCase();
+  document.getElementById('bar-callsign').textContent=state.name.toUpperCase();
+  document.getElementById('bar-lang').textContent=state.lang.toUpperCase()+' \u00b7 '+(state.activePeer?'PRIVATE':'BROADCAST')+' MODE';
+  document.getElementById('bar-peers').textContent=state.peers.length+' PEERS';
+  document.getElementById('profileAvatar').textContent=init;
+  document.getElementById('profileName').textContent=state.name.toUpperCase();
+  document.getElementById('profileLangBadge').textContent='LANGUAGE: '+state.lang.toUpperCase();
+  document.getElementById('profileNameVal').textContent=state.name;
+  document.getElementById('profileGenderVal').textContent=state.gender;
+  document.getElementById('profileNodeId').textContent=state.nodeId;
+  document.getElementById('statMsgs').textContent=state.msgCount;
+  document.getElementById('statSos').textContent=state.sosCount;
+}
+const DEMO_PHRASES=['Requesting status update from all units.','Moving to extraction point Delta.','Hostile activity detected at grid 6-7.','Perimeter secured. Stand by.','Ammunition running low. Need resupply.','Visual on target. Confirming.','Weather worsening. Delay movement.','Rendezvous at 1400 hours. Grid Alpha-3.'];
+let pttRecording=false;
+function startPTT(e){if(e)e.preventDefault();if(pttRecording)return;pttRecording=true;const btn=document.getElementById('pttBtn');btn.classList.add('recording');document.getElementById('pttLabel').textContent='TRANSMITTING';document.getElementById('recIndicator').classList.add('active');document.getElementById('transcriptText').textContent='Listening\u2026';}
+function stopPTT(){if(!pttRecording)return;pttRecording=false;const btn=document.getElementById('pttBtn');btn.classList.remove('recording');document.getElementById('pttLabel').textContent='PUSH TO TALK';document.getElementById('recIndicator').classList.remove('active');const phrase=DEMO_PHRASES[Math.floor(Math.random()*DEMO_PHRASES.length)];document.getElementById('transcriptText').innerHTML=phrase.split(' ').map(w=>'<span class="word-new">'+w+'</span>').join(' ');addConvoMsg(phrase,'outgoing');state.msgCount++;buildProfile();toast('STT \u2192 '+state.lang+' \u2192 Translated & Sent','success');if(state.activePeer)toast('PRIVATE \u2192 '+state.activePeer,'info');}
+function addConvoMsg(text,dir,sender){const feed=document.getElementById('convoFeed');const now=new Date();const t=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');const init=dir==='outgoing'?'ME':(sender||'A2');feed.insertAdjacentHTML('beforeend','<div class="convo-msg '+dir+'"><div class="msg-avatar">'+init+'</div><div><div class="msg-bubble">'+text+'</div><div class="msg-meta">'+(dir==='outgoing'?'YOU':init)+' \u00b7 '+t+' \u00b7 '+state.lang+'</div></div></div>');feed.scrollTop=feed.scrollHeight;}
+function sendPreCmd(text){addConvoMsg(text,'outgoing');state.msgCount++;buildProfile();toast('CMD SENT ['+(state.activePeer?'PRIVATE \u2192 '+state.activePeer:'BROADCAST')+']','success');}
+function triggerSOS(){state.sosCount++;buildProfile();const now=new Date();const t=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');const msg='\u26a0 EMERGENCY! '+state.name.toUpperCase()+' NEEDS IMMEDIATE ASSISTANCE! Node: '+state.nodeId;document.getElementById('sosFeed').insertAdjacentHTML('afterbegin','<div class="sos-alert active"><div class="alert-dot red"></div><div><div class="sos-alert-text">'+msg+'</div><div class="sos-alert-meta">'+t+' \u00b7 Sent to ALL '+state.peers.length+' nodes</div></div></div>');toast('\ud83d\udea8 SOS BROADCAST SENT TO ALL NODES','sos');}
+function buildPeerList(){const list=document.getElementById('peerList');list.innerHTML='';state.peers.forEach((p,i)=>{const sel=state.activePeer===p.id;list.insertAdjacentHTML('beforeend','<div class="peer-item glass'+(sel?' selected':'')+'" id="peer-'+i+'" onclick="selectPeer('+i+')"><div class="peer-avatar">'+p.initial+'</div><div class="peer-info"><div class="peer-name">'+p.id+'</div><div class="peer-meta">'+p.ip+' \u00b7 '+p.lang+'</div></div><div class="peer-signal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+(sel?'var(--success)':'var(--neon)')+'" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1"/></svg><span class="signal-val">'+p.signal+'</span></div></div>');});document.getElementById('meshBadge').textContent=state.peers.length+' NODES';document.getElementById('deviceCountBadge').textContent='CONNECTED DEVICES: '+state.peers.length;}
+function selectPeer(i){const peer=state.peers[i];if(state.activePeer===peer.id){clearPrivate();return;}state.activePeer=peer.id;document.querySelectorAll('.radar-node').forEach((n,idx)=>n.classList.toggle('selected',idx===i));document.getElementById('privateBanner').classList.add('visible');document.getElementById('privateBannerText').textContent='PRIVATE CHANNEL: '+peer.id;document.getElementById('meshSubtitle').textContent='PRIVATE \u2192 '+peer.id;buildProfile();buildPeerList();toast('PRIVATE CHANNEL \u2192 '+peer.id,'info');}
+function clearPrivate(){state.activePeer=null;document.querySelectorAll('.radar-node').forEach(n=>n.classList.remove('selected'));document.getElementById('privateBanner').classList.remove('visible');document.getElementById('meshSubtitle').textContent='BROADCAST MODE \u2014 ALL NODES';buildProfile();buildPeerList();toast('BROADCAST MODE RESTORED','success');}
+function buildProfileLangGrid(){const grid=document.getElementById('profileLangGrid');grid.innerHTML='';LANGS.forEach(l=>{const active=l.name===state.lang;grid.insertAdjacentHTML('beforeend','<div class="lang-sm'+(active?' active':'')+'" onclick="switchLang(\''+l.name+'\',\''+l.code+'\')">'+l.name+'<span>'+l.native+'</span></div>');});}
+function switchLang(name,code){state.lang=name;state.langCode=code;buildProfile();buildProfileLangGrid();document.getElementById('profileLangBadge').textContent='LANGUAGE: '+name.toUpperCase();toast('LANGUAGE \u2192 '+name+' \u00b7 STT/TTS Reconfigured','success');}
+function saveProfile(){buildProfile();toast('PROFILE SAVED \u00b7 NODE UPDATED','success');}
+function toast(msg,type){const c=document.getElementById('toastContainer');const div=document.createElement('div');div.className='toast '+(type||'info');const icons={info:'\u25c8',success:'\u2713',sos:'\u26a0'};div.innerHTML='<span>'+(icons[type]||'\u25c8')+'</span><span>'+msg+'</span>';c.appendChild(div);setTimeout(()=>div.remove(),3100);}
+function updateClock(){const now=new Date();document.getElementById('statusTime').textContent=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');}
+setInterval(updateClock,10000);updateClock();
+const INCOMING=[{sender:'ALPHA-2',text:'Position confirmed at Grid 4-4. Awaiting orders.',lang:'Hindi'},{sender:'BRAVO-1',text:'Flank clear. Proceeding north.',lang:'Tamil'},{sender:'CHARLIE-3',text:'Visual on extraction helo. 5 minutes.',lang:'Telugu'},{sender:'DELTA-4',text:'Request route verification. Path blocked.',lang:'English'}];
+let incomingIdx=0;
+setInterval(()=>{const m=INCOMING[incomingIdx%INCOMING.length];incomingIdx++;addConvoMsg(m.text,'incoming',m.sender.substring(0,2).toUpperCase());toast('MSG FROM '+m.sender,'info');state.msgCount++;buildProfile();},30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Gradle & Android Studio build files
+.gradle/
+**/.gradle/
+build/
+**/build/
+*.iml
+**/*.iml
+.idea/
+**/.idea/
+local.properties
+**/local.properties
+.cxx/
+captures/
+.externalNativeBuild/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Python cache & virtual environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.log
+
+# Keep only the primary production Angelios.apk; ignore intermediate duplicate build archives
+Angelios-demo.apk
+Angelios-v2.3.apk
+iTANTRA-demo-runner.apk
+iTANTRA-v1.0-offline.apk
+iTANTRA-v2.0-offline-cyberpunk.apk
+iTANTRA-v2.1-ui-fixed.apk
+iTANTRA-v2.2-separated-cards.apk
