@@ -28,6 +28,33 @@ import java.util.concurrent.TimeUnit
  */
 private fun String.nfc(): String = Normalizer.normalize(this, Normalizer.Form.NFC)
 
+/** Common negation words/particles across the app's supported languages. */
+private val NEGATION_MARKERS = setOf(
+    // Tamil
+    "முடியாது", "முடியல", "முடியாம", "இல்ல", "இல்லை", "வேண்டாம்", "வேணாம்", "கூடாது", "மாட்டேன்", "மாட்டோம்",
+    // Hindi / Marathi (share Devanagari negation words)
+    "नहीं", "मत", "नको",
+    // Telugu
+    "కాదు", "లేదు", "వద్దు",
+    // Kannada
+    "ಇಲ್ಲ", "ಬೇಡ", "ಆಗುವುದಿಲ್ಲ",
+    // Malayalam
+    "ഇല്ല", "വേണ്ട", "കഴിയില്ല",
+    // Bengali
+    "না", "নেই",
+    // Gujarati
+    "નથી", "નહીં",
+    // Punjabi
+    "ਨਹੀਂ", "ਨਾ"
+)
+
+/** True if any whitespace-separated token contains a known negation marker. */
+private fun containsNegationMarker(text: String): Boolean {
+    return text.split(Regex("""\s+""")).any { token ->
+        NEGATION_MARKERS.any { marker -> token.contains(marker) }
+    }
+}
+
 data class EdgeServerStatus(
     val isOnline: Boolean = false,
     val endpoint: String? = null,
@@ -332,14 +359,21 @@ class OfflineTranslatorEngine {
             }
 
             // 4. Lexicon word match
-            val matchedWords = mutableListOf<String>()
-            for ((enWord, indicWord) in pack.lexicon) {
-                if (cleanInput.contains(indicWord) || lowerInput.contains(enWord)) {
-                    matchedWords.add(enWord)
+            // Skipped when the sentence contains a negation marker: this fallback only
+            // detects that a known word (e.g. "help") is present and stamps out a fixed
+            // "X reported" template, which flips the meaning of a negative statement
+            // (e.g. "can't help" -> "Tactical report: help reported"). Let negated
+            // sentences fall through to the phrase/pattern/neural tiers instead.
+            if (!containsNegationMarker(cleanInput)) {
+                val matchedWords = mutableListOf<String>()
+                for ((enWord, indicWord) in pack.lexicon) {
+                    if (cleanInput.contains(indicWord) || lowerInput.contains(enWord)) {
+                        matchedWords.add(enWord)
+                    }
                 }
-            }
-            if (matchedWords.isNotEmpty()) {
-                return "Tactical report: " + matchedWords.joinToString(", ") + " reported"
+                if (matchedWords.isNotEmpty()) {
+                    return "Tactical report: " + matchedWords.joinToString(", ") + " reported"
+                }
             }
         }
 
@@ -978,6 +1012,12 @@ class OfflineTranslatorEngine {
             "சாப்பிட்டீங்களா", "சாப்பிட்டீர்களா" -> "Did you eat?"
             "பயப்படாதீங்க", "பயப்படாதீர்கள்" -> "Do not panic, stay calm"
             "கவலைப்படாதீங்க", "கவலைப்படாதீர்கள்" -> "Do not worry"
+
+            // Negative / Refusal Statements
+            "உதவி செய்ய முடியாது போடா", "உதவி செய்ய முடியாது", "எனக்கு உதவ முடியாது", "எங்களால் உதவ முடியாது", "உதவ முடியாது போடா", "உதவ முடியாது" -> "I can't help you"
+            "வர முடியாது போடா", "வர முடியாது", "என்னால் வர முடியாது" -> "I can't come"
+            "செய்ய முடியாது போடா", "செய்ய முடியாது", "என்னால் முடியாது", "எங்களால் முடியாது" -> "I can't do that"
+            "எனக்கு புரியல", "எனக்கு புரியவில்லை" -> "I don't understand"
 
             // Greetings & Basics
             "வணக்கம்" -> "Hello"
