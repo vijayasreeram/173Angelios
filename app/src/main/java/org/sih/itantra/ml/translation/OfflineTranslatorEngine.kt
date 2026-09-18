@@ -837,7 +837,11 @@ class OfflineTranslatorEngine {
                 Language.TELUGU -> matchTeluguToEnglish(clean)
                 Language.KANNADA -> matchKannadaToEnglish(clean)
                 Language.MALAYALAM -> matchMalayalamToEnglish(clean)
-                else -> matchTamilToEnglish(clean) ?: matchHindiToEnglish(clean)
+                Language.BENGALI -> matchBengaliToEnglish(clean)
+                Language.MARATHI -> matchMarathiToEnglish(clean)
+                Language.GUJARATI -> matchGujaratiToEnglish(clean)
+                Language.PUNJABI -> matchPunjabiToEnglish(clean)
+                else -> null
             }
         }
 
@@ -992,6 +996,70 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "ഞങ്ങൾക്ക് ഭക്ഷണവും വെള്ളവും വേണം"
                 "all clear" -> "എല്ലാം ശാന്തമാണ്"
                 "thank you" -> "നന്ദി"
+                else -> null
+            }
+
+            Language.BENGALI -> when (clean) {
+                "hello", "hi" -> "নমস্কার"
+                "how are you" -> "আপনি কেমন আছেন?"
+                "i am fine" -> "আমি ভালো আছি"
+                "can you hear me" -> "আপনি কি আমার কথা শুনতে পাচ্ছেন?"
+                "where are you" -> "আপনি কোথায় আছেন?"
+                "we need help", "help us" -> "আমাদের সাহায্য দরকার"
+                "route is clear" -> "রাস্তা নিরাপদ"
+                "road is blocked" -> "রাস্তা বন্ধ"
+                "the road is blocked do not come this way", "road is blocked do not come this way" -> "রাস্তা বন্ধ, এই পথে আসবেন না"
+                "we need food and water" -> "আমাদের খাবার ও জল দরকার"
+                "all clear" -> "সব ঠিক আছে"
+                "thank you" -> "ধন্যবাদ"
+                else -> null
+            }
+
+            Language.MARATHI -> when (clean) {
+                "hello", "hi" -> "नमस्कार"
+                "how are you" -> "तुम्ही कसे आहात?"
+                "i am fine" -> "मी ठीक आहे"
+                "can you hear me" -> "तुम्हाला माझा आवाज ऐकू येतो का?"
+                "where are you" -> "तुम्ही कुठे आहात?"
+                "we need help", "help us" -> "आम्हाला मदत हवी आहे"
+                "route is clear" -> "मार्ग सुरक्षित आहे"
+                "road is blocked" -> "रस्ता बंद आहे"
+                "the road is blocked do not come this way", "road is blocked do not come this way" -> "रस्ता बंद आहे, या मार्गाने येऊ नका"
+                "we need food and water" -> "आम्हाला अन्न आणि पाणी हवे आहे"
+                "all clear" -> "सर्व ठीक आहे"
+                "thank you" -> "धन्यवाद"
+                else -> null
+            }
+
+            Language.GUJARATI -> when (clean) {
+                "hello", "hi" -> "નમસ્તે"
+                "how are you" -> "તમે કેમ છો?"
+                "i am fine" -> "હું ઠીક છું"
+                "can you hear me" -> "શું તમે મને સાંભળી શકો છો?"
+                "where are you" -> "તમે ક્યાં છો?"
+                "we need help", "help us" -> "અમને મદદની જરૂર છે"
+                "route is clear" -> "રસ્તો સુરક્ષિત છે"
+                "road is blocked" -> "રસ્તો બંધ છે"
+                "the road is blocked do not come this way", "road is blocked do not come this way" -> "રસ્તો બંધ છે, આ રસ્તે ન આવો"
+                "we need food and water" -> "અમને ખોરાક અને પાણીની જરૂર છે"
+                "all clear" -> "બધું બરાબર છે"
+                "thank you" -> "આભાર"
+                else -> null
+            }
+
+            Language.PUNJABI -> when (clean) {
+                "hello", "hi" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ"
+                "how are you" -> "ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
+                "i am fine" -> "ਮੈਂ ਠੀਕ ਹਾਂ"
+                "can you hear me" -> "ਕੀ ਤੁਸੀਂ ਮੈਨੂੰ ਸੁਣ ਸਕਦੇ ਹੋ?"
+                "where are you" -> "ਤੁਸੀਂ ਕਿੱਥੇ ਹੋ?"
+                "we need help", "help us" -> "ਸਾਨੂੰ ਮਦਦ ਦੀ ਲੋੜ ਹੈ"
+                "route is clear" -> "ਰਸਤਾ ਸਾਫ਼ ਹੈ"
+                "road is blocked" -> "ਰਸਤਾ ਬੰਦ ਹੈ"
+                "the road is blocked do not come this way", "road is blocked do not come this way" -> "ਰਸਤਾ ਬੰਦ ਹੈ, ਇਸ ਪਾਸੇ ਨਾ ਆਓ"
+                "we need food and water" -> "ਸਾਨੂੰ ਭੋਜਨ ਅਤੇ ਪਾਣੀ ਦੀ ਲੋੜ ਹੈ"
+                "all clear" -> "ਸਭ ਠੀਕ ਹੈ"
+                "thank you" -> "ਧੰਨਵਾਦ"
                 else -> null
             }
 
@@ -1196,6 +1264,166 @@ class OfflineTranslatorEngine {
             "ഞങ്ങൾക്ക് ഭക്ഷണവും വെള്ളവും വേണം" -> "We need food and water"
             "എല്ലാം ശാന്തമാണ്" -> "All clear, area is secure"
             "നന്ദി" -> "Thank you"
+            else -> null
+        }
+    }
+
+    private fun matchBengaliToEnglish(clean: String): String? {
+        val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
+        return when (noPunct) {
+            "সবাই কোথায় আছেন", "সবাই কোথায় আছো" -> "Where is everyone?"
+            "কী করছেন", "কী করছো" -> "What are you doing?"
+            "কোথায় যাচ্ছেন", "কোথায় যাচ্ছো" -> "Where are you going?"
+            "সব ঠিক আছে" -> "Everything is fine"
+            "টেনশন নিও না" -> "Do not worry"
+            "নমস্কার", "হ্যালো" -> "Hello"
+            "আপনি কেমন আছেন", "কেমন আছেন" -> "How are you?"
+            "আমি ভালো আছি" -> "I am fine"
+            "আমরা ভালো আছি" -> "We are fine"
+            "আপনার নাম কী" -> "What is your name?"
+            "আপনি কি আমার কথা শুনতে পাচ্ছেন", "শুনতে পাচ্ছেন" -> "Can you hear me?"
+            "হ্যাঁ আমি আপনাকে শুনতে পাচ্ছি" -> "Yes, I can hear you"
+            "আপনি কোথায় আছেন", "কোথায় আছেন" -> "Where are you?"
+            "কী হয়েছে" -> "What happened?"
+            "আপনি যেখানে আছেন সেখানেই থাকুন" -> "Stay where you are"
+            "আমরা সাহায্য করতে আসছি", "আমরা আসছি" -> "We are coming to help"
+            "তাড়াতাড়ি আসুন" -> "Come quickly"
+            "দয়া করে আমাদের সাহায্য করুন", "আমাদের সাহায্য করুন" -> "Please help us"
+            "রাস্তা পরিষ্কার এবং নিরাপদ" -> "Route is clear and safe"
+            "রাস্তা বন্ধ" -> "The road is blocked"
+            "রাস্তা বন্ধ এই পথে আসবেন না" -> "The road is blocked, do not come this way"
+            "সেতু ক্ষতিগ্রস্ত হয়েছে" -> "The bridge is damaged"
+            "আমাদের খাবার ও জল প্রয়োজন" -> "We need food and water"
+            "খাবার জল প্রয়োজন" -> "Drinking water needed"
+            "জরুরি চিকিৎসা দল প্রয়োজন" -> "Medical team needed urgently"
+            "আপনি কি নিরাপদ" -> "Are you safe?"
+            "আমরা নিরাপদ" -> "We are safe"
+            "সব ঠিক আছে এলাকা নিরাপদ" -> "All clear, area is secure"
+            "রেডিও চেক সংযোগ স্থাপিত" -> "Radio check, connection established"
+            "বুঝেছি বার্তা পেয়েছি" -> "Roger that, message understood"
+            "ধন্যবাদ" -> "Thank you"
+            "হ্যাঁ" -> "Yes"
+            "না" -> "No"
+            else -> null
+        }
+    }
+
+    private fun matchMarathiToEnglish(clean: String): String? {
+        val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
+        return when (noPunct) {
+            "सगळे कुठे आहेत", "सगळे कुठे आहात" -> "Where is everyone?"
+            "काय करत आहात", "तू काय करतोयस" -> "What are you doing?"
+            "कुठे जात आहात" -> "Where are you going?"
+            "सर्व काही ठीक आहे" -> "Everything is fine"
+            "टेन्शन घेऊ नका" -> "Do not worry"
+            "नमस्कार" -> "Hello"
+            "तुम्ही कसे आहात", "कसे आहात" -> "How are you?"
+            "मी ठीक आहे" -> "I am fine"
+            "आम्ही ठीक आहोत" -> "We are fine"
+            "तुमचे नाव काय आहे" -> "What is your name?"
+            "तुम्हाला माझा आवाज ऐकू येतो का", "ऐकू येते का" -> "Can you hear me?"
+            "हो मला तुमचा आवाज ऐकू येतो" -> "Yes, I can hear you"
+            "तुम्ही कुठे आहात", "कुठे आहात" -> "Where are you?"
+            "काय झाले" -> "What happened?"
+            "तुम्ही जिथे आहात तिथेच थांबा" -> "Stay where you are"
+            "आम्ही मदतीसाठी येत आहोत", "आम्ही येत आहोत" -> "We are coming to help"
+            "लवकर या" -> "Come quickly"
+            "कृपया आम्हाला मदत करा", "आम्हाला मदत करा" -> "Please help us"
+            "मार्ग सुरक्षित आणि मोकळा आहे" -> "Route is clear and safe"
+            "रस्ता बंद आहे" -> "The road is blocked"
+            "रस्ता बंद आहे या मार्गाने येऊ नका" -> "The road is blocked, do not come this way"
+            "पूल खराब झाला आहे" -> "The bridge is damaged"
+            "आम्हाला अन्न आणि पाणी हवे आहे" -> "We need food and water"
+            "पिण्याचे पाणी हवे आहे" -> "Drinking water needed"
+            "तातडीने वैद्यकीय पथक हवे आहे" -> "Medical team needed urgently"
+            "तुम्ही सुरक्षित आहात का" -> "Are you safe?"
+            "आम्ही सुरक्षित आहोत" -> "We are safe"
+            "सर्व ठीक आहे क्षेत्र सुरक्षित आहे" -> "All clear, area is secure"
+            "रेडिओ तपासणी संपर्क स्थापित झाला आहे" -> "Radio check, connection established"
+            "समजले संदेश मिळाला" -> "Roger that, message understood"
+            "धन्यवाद" -> "Thank you"
+            "हो" -> "Yes"
+            "नाही" -> "No"
+            else -> null
+        }
+    }
+
+    private fun matchGujaratiToEnglish(clean: String): String? {
+        val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
+        return when (noPunct) {
+            "બધા ક્યાં છે" -> "Where is everyone?"
+            "શું કરો છો" -> "What are you doing?"
+            "ક્યાં જાવ છો" -> "Where are you going?"
+            "બધું બરાબર છે" -> "Everything is fine"
+            "ટેન્શન ના લો" -> "Do not worry"
+            "નમસ્તે" -> "Hello"
+            "તમે કેમ છો", "કેમ છો" -> "How are you?"
+            "હું ઠીક છું" -> "I am fine"
+            "અમે ઠીક છીએ" -> "We are fine"
+            "તમારું નામ શું છે" -> "What is your name?"
+            "શું તમે મને સાંભળી શકો છો", "સાંભળી શકો છો" -> "Can you hear me?"
+            "હા હું તમને સાંભળી શકું છું" -> "Yes, I can hear you"
+            "તમે ક્યાં છો", "ક્યાં છો" -> "Where are you?"
+            "શું થયું" -> "What happened?"
+            "તમે જ્યાં છો ત્યાં જ રહો" -> "Stay where you are"
+            "અમે મદદ કરવા આવી રહ્યા છીએ", "અમે આવી રહ્યા છીએ" -> "We are coming to help"
+            "જલ્દી આવો" -> "Come quickly"
+            "કૃપા કરીને અમારી મદદ કરો", "અમારી મદદ કરો" -> "Please help us"
+            "રસ્તો સાફ અને સુરક્ષિત છે" -> "Route is clear and safe"
+            "રસ્તો બંધ છે" -> "The road is blocked"
+            "રસ્તો બંધ છે આ રસ્તે ન આવો" -> "The road is blocked, do not come this way"
+            "પુલ ક્ષતિગ્રસ્ત થયો છે" -> "The bridge is damaged"
+            "અમને ખોરાક અને પાણીની જરૂર છે" -> "We need food and water"
+            "પીવાનું પાણી જોઈએ છે" -> "Drinking water needed"
+            "તાત્કાલિક તબીબી ટીમની જરૂર છે" -> "Medical team needed urgently"
+            "શું તમે સુરક્ષિત છો" -> "Are you safe?"
+            "અમે સુરક્ષિત છીએ" -> "We are safe"
+            "બધું બરાબર છે વિસ્તાર સુરક્ષિત છે" -> "All clear, area is secure"
+            "રેડિયો ચેક સંપર્ક સ્થાપિત થયો છે" -> "Radio check, connection established"
+            "સમજાઈ ગયું સંદેશ મળ્યો" -> "Roger that, message understood"
+            "આભાર" -> "Thank you"
+            "હા" -> "Yes"
+            "ના" -> "No"
+            else -> null
+        }
+    }
+
+    private fun matchPunjabiToEnglish(clean: String): String? {
+        val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
+        return when (noPunct) {
+            "ਸਾਰੇ ਕਿੱਥੇ ਹਨ", "ਸਾਰੇ ਕਿੱਥੇ ਹੋ" -> "Where is everyone?"
+            "ਕੀ ਕਰ ਰਹੇ ਹੋ" -> "What are you doing?"
+            "ਕਿੱਥੇ ਜਾ ਰਹੇ ਹੋ" -> "Where are you going?"
+            "ਸਭ ਠੀਕ ਹੈ" -> "Everything is fine"
+            "ਟੈਂਸ਼ਨ ਨਾ ਲਓ" -> "Do not worry"
+            "ਸਤ ਸ੍ਰੀ ਅਕਾਲ" -> "Hello"
+            "ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ", "ਕਿਵੇਂ ਹੋ" -> "How are you?"
+            "ਮੈਂ ਠੀਕ ਹਾਂ" -> "I am fine"
+            "ਅਸੀਂ ਠੀਕ ਹਾਂ" -> "We are fine"
+            "ਤੁਹਾਡਾ ਨਾਮ ਕੀ ਹੈ" -> "What is your name?"
+            "ਕੀ ਤੁਸੀਂ ਮੈਨੂੰ ਸੁਣ ਸਕਦੇ ਹੋ", "ਸੁਣ ਸਕਦੇ ਹੋ" -> "Can you hear me?"
+            "ਹਾਂ ਮੈਂ ਤੁਹਾਨੂੰ ਸੁਣ ਸਕਦਾ ਹਾਂ" -> "Yes, I can hear you"
+            "ਤੁਸੀਂ ਕਿੱਥੇ ਹੋ", "ਕਿੱਥੇ ਹੋ" -> "Where are you?"
+            "ਕੀ ਹੋਇਆ" -> "What happened?"
+            "ਤੁਸੀਂ ਜਿੱਥੇ ਹੋ ਉੱਥੇ ਹੀ ਰਹੋ" -> "Stay where you are"
+            "ਅਸੀਂ ਮਦਦ ਲਈ ਆ ਰਹੇ ਹਾਂ", "ਅਸੀਂ ਆ ਰਹੇ ਹਾਂ" -> "We are coming to help"
+            "ਜਲਦੀ ਆਓ" -> "Come quickly"
+            "ਕਿਰਪਾ ਕਰਕੇ ਸਾਡੀ ਮਦਦ ਕਰੋ", "ਸਾਡੀ ਮਦਦ ਕਰੋ" -> "Please help us"
+            "ਰਸਤਾ ਸਾਫ਼ ਅਤੇ ਸੁਰੱਖਿਅਤ ਹੈ" -> "Route is clear and safe"
+            "ਰਸਤਾ ਬੰਦ ਹੈ" -> "The road is blocked"
+            "ਰਸਤਾ ਬੰਦ ਹੈ ਇਸ ਪਾਸੇ ਨਾ ਆਓ" -> "The road is blocked, do not come this way"
+            "ਪੁਲ ਖਰਾਬ ਹੋ ਗਿਆ ਹੈ" -> "The bridge is damaged"
+            "ਸਾਨੂੰ ਭੋਜਨ ਅਤੇ ਪਾਣੀ ਦੀ ਲੋੜ ਹੈ" -> "We need food and water"
+            "ਪੀਣ ਵਾਲੇ ਪਾਣੀ ਦੀ ਲੋੜ ਹੈ" -> "Drinking water needed"
+            "ਤੁਰੰਤ ਮੈਡੀਕਲ ਟੀਮ ਦੀ ਲੋੜ ਹੈ" -> "Medical team needed urgently"
+            "ਕੀ ਤੁਸੀਂ ਸੁਰੱਖਿਅਤ ਹੋ" -> "Are you safe?"
+            "ਅਸੀਂ ਸੁਰੱਖਿਅਤ ਹਾਂ" -> "We are safe"
+            "ਸਭ ਠੀਕ ਹੈ ਇਲਾਕਾ ਸੁਰੱਖਿਅਤ ਹੈ" -> "All clear, area is secure"
+            "ਰੇਡੀਓ ਚੈੱਕ ਸੰਪਰਕ ਸਥਾਪਿਤ ਹੈ" -> "Radio check, connection established"
+            "ਸਮਝ ਗਿਆ ਸੁਨੇਹਾ ਮਿਲ ਗਿਆ" -> "Roger that, message understood"
+            "ਧੰਨਵਾਦ" -> "Thank you"
+            "ਹਾਂ" -> "Yes"
+            "ਨਹੀਂ" -> "No"
             else -> null
         }
     }
