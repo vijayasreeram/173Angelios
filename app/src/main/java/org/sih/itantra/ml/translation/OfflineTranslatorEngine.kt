@@ -1211,8 +1211,16 @@ class OfflineTranslatorEngine {
             when (detected) {
                 Language.TAMIL -> {
                     // Pattern T0: Spoken Questions & Conversational Queries
-                    if (Regex("""(?:எல்லாரும்|அனைவரும்|நீங்க|நீங்கள்)\s+(?:எங்க|எங்கே)\s+(?:இருக்கீங்க|இருக்கிறீர்கள்|இருக்காங்க|உள்ளீர்கள்)""").containsMatchIn(text)) {
+                    // Voice transcription commonly fuses the "டா"/"டி" address particle directly
+                    // onto the question word with no space (e.g. "எங்கடா" instead of "எங்க டா"),
+                    // and drops to the bare informal verb form ("இருக்க" instead of "இருக்கீங்க").
+                    if (Regex("""(?:எல்லாரும்|அனைவரும்|நீங்க|நீங்கள்)?\s*(?:எங்கடா|எங்கேடா|எங்கடி|எங்கேடி|எங்க|எங்கே)\s+(?:இருக்கீங்க|இருக்கிறீர்கள்|இருக்காங்க|உள்ளீர்கள்|இருக்க)""").containsMatchIn(text)) {
                         return if (text.contains("எல்லாரும்") || text.contains("அனைவரும்")) "Where are you all?" else "Where are you?"
+                    }
+                    // "இங்க வாங்க" (come here) is genuinely ambiguous with "buy" (வாங்க can mean
+                    // either "come!" or "buy!"); in this direction/movement context it means "come".
+                    if (Regex("""(?:எல்லாரும்|அனைவரும்)?\s*இங்க(?:ே)?\s+(?:வாங்க|வாருங்கள்|வா)(?=$|[\s.,!?])""").containsMatchIn(text)) {
+                        return if (text.contains("எல்லாரும்") || text.contains("அனைவரும்")) "Everyone come here" else "Come here"
                     }
                     if (Regex("""(?:எல்லாரும்|அனைவரும்)\s+(?:எப்படி)\s+(?:இருக்கீங்க|இருக்கிறீர்கள்|இருக்காங்க)""").containsMatchIn(text)) {
                         return "How is everyone doing?"
