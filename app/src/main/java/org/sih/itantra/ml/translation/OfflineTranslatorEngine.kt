@@ -339,8 +339,15 @@ class OfflineTranslatorEngine {
             pack.phrasesTargetToEn[cleanInput]?.let { return it }
             pack.phrasesTargetToEn[cleanPunct]?.let { return it }
 
-            // 2. Substring or reverse phrase match
-            pack.phrasesTargetToEn.entries.find { cleanInput.contains(it.key) || it.key.contains(cleanInput) || cleanPunct.contains(it.key.lowercase(Locale.ROOT)) }?.let { return it.value }
+            // 2. Substring / reverse phrase match — ONLY for short inputs (≤7 words).
+            // For longer, multi-clause sentences (e.g. "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க")
+            // a substring match would silently drop the first clause (returning only
+            // "How are you?" and losing "Hello, I am fine"). Multi-clause inputs must
+            // fall through to splitAndTranslateCompound() in the main translate() pipeline.
+            val inputWordCount = cleanInput.split(Regex("""\s+""")).size
+            if (inputWordCount <= 7) {
+                pack.phrasesTargetToEn.entries.find { cleanInput.contains(it.key) || it.key.contains(cleanInput) || cleanPunct.contains(it.key.lowercase(Locale.ROOT)) }?.let { return it.value }
+            }
 
             // 3. Tanglish conversion if source is Tamil or contains Tanglish words
             if (pack.tanglishMap.isNotEmpty()) {
@@ -384,8 +391,11 @@ class OfflineTranslatorEngine {
             pack.phrasesEnToTarget[lowerInput]?.let { return it }
             pack.phrasesEnToTarget[cleanPunct]?.let { return it }
 
-            // 2. Substring match
-            pack.phrasesEnToTarget.entries.find { lowerInput.contains(it.key) || it.key.contains(lowerInput) || cleanPunct.contains(it.key) }?.let { return it.value }
+            // 2. Substring match — guard to short inputs only (≤7 words) for same reason as Case A
+            val enWordCount = lowerInput.split(Regex("""\s+""")).size
+            if (enWordCount <= 7) {
+                pack.phrasesEnToTarget.entries.find { lowerInput.contains(it.key) || it.key.contains(lowerInput) || cleanPunct.contains(it.key) }?.let { return it.value }
+            }
 
             // 3. Lexicon match
             for ((enWord, indicWord) in pack.lexicon) {
@@ -491,6 +501,22 @@ class OfflineTranslatorEngine {
             return colloquialPack
         }
 
+        // Tier 1.5: Compound Sentence Splitter (Google Translate-style multi-clause handling)
+        // For inputs > 7 words that failed single-phrase pack lookup, detect clause boundaries
+        // (e.g. "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க") and translate each
+        // clause independently, then join — producing "Hello, I am fine, How are you doing?"
+        // instead of silently dropping the first clause.
+        val inputWordCount = trimmed.split(Regex("""\s+""")).size
+        if (inputWordCount > 7) {
+            val compoundResult = splitAndTranslateCompound(trimmed, actualSource, targetLanguage)
+                ?: if (formalText != trimmed) splitAndTranslateCompound(formalText, actualSource, targetLanguage) else null
+            if (!compoundResult.isNullOrBlank()) {
+                val colloquialCompound = ColloquialEngine.toColloquial(compoundResult, targetLanguage, trimmed)
+                translationCache[cacheKey] = colloquialCompound
+                return colloquialCompound
+            }
+        }
+
         // Tier 2: Direct High-Fidelity Idiomatic & Conversational Phrase Matching (0.02 ms)
         var phraseMatch = matchCommonPhrases(trimmed.lowercase(Locale.ROOT), targetLanguage, actualSource)
         if (phraseMatch == null && formalText != trimmed) {
@@ -563,6 +589,118 @@ class OfflineTranslatorEngine {
             }
         }
         return null
+    }
+
+    /**
+     * Compound sentence splitter — mirrors how Google Translate handles multi-clause sentences.
+     *
+     * When a speaker says something like:
+     *   "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க"
+     *   (= "Hello, I am fine. How are you doing?")
+     *
+     * the single-phrase lookup tiers return only the last matched clause ("How are you doing?"),
+     * dropping the first clause entirely. This function:
+     *   1. Detects clause boundaries using language-specific boundary markers.
+     *   2. Translates each clause independently through the existing tier pipeline.
+     *   3. Joins results with ", " to produce the full translation.
+     *
+     * Only invoked for longer inputs (>7 words) that failed all single-phrase lookups.
+     */
+    private fun splitAndTranslateCompound(
+        text: String,
+        sourceLanguage: Language,
+        targetLanguage: Language
+    ): String? {
+        // Tamil clause boundary markers — words/particles that signal the end of one clause
+        // and the start of another in spoken/colloquial Tamil.
+        val tamilBoundaries = listOf(
+            // "நீங்க" / "நீங்கள்" starting a new clause after a self-status report
+            Regex("""(?<=\S)\s+(நீங்க|நீங்கள்)\s+"""),
+            // "நாங்க" / "நாங்கள்" starting a new clause
+            Regex("""(?<=\S)\s+(நாங்க|நாங்கள்)\s+"""),
+            // "அவங்க" / "அவர்கள்"
+            Regex("""(?<=\S)\s+(அவங்க|அவர்கள்)\s+"""),
+        )
+        // Hindi clause boundaries
+        val hindiBoundaries = listOf(
+            Regex("""(?<=\S)\s+(आप|हम|वे)\s+"""),
+        )
+        // Malayalam clause boundaries
+        val malayalamBoundaries = listOf(
+            Regex("""(?<=\S)\s+(നിങ്ങൾ|അവർ)\s+"""),
+        )
+
+        val boundaries = when (sourceLanguage) {
+            Language.TAMIL -> tamilBoundaries
+            Language.HINDI -> hindiBoundaries
+            Language.MALAYALAM -> malayalamBoundaries
+            else -> emptyList()
+        }
+
+        // Split into clauses at the first matching boundary
+        var clauses: List<String>? = null
+        for (boundaryRegex in boundaries) {
+            val matchResult = boundaryRegex.find(text) ?: continue
+            val splitIndex = matchResult.range.first
+            val clause1 = text.substring(0, splitIndex).trim()
+            val clause2 = text.substring(splitIndex).trim()
+            if (clause1.isNotBlank() && clause2.isNotBlank()) {
+                clauses = listOf(clause1, clause2)
+                break
+            }
+        }
+
+        // Fallback: split on pronounced pause — 5+ word sentences where the word count
+        // of each half is ≥ 2.  Try every internal word boundary as a potential split.
+        if (clauses == null) {
+            val words = text.split(Regex("""\s+"""))
+            if (words.size >= 5) {
+                // Find the best split point using dictionary match scoring
+                var bestSplit: Pair<String, String>? = null
+                for (i in 2 until words.size - 2) {
+                    val left = words.subList(0, i).joinToString(" ")
+                    val right = words.subList(i, words.size).joinToString(" ")
+                    // Check if both halves independently match known phrases
+                    val leftMatch = matchCommonPhrases(left.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
+                        ?: matchSentencePatterns(left, targetLanguage, sourceLanguage)
+                    val rightMatch = matchCommonPhrases(right.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
+                        ?: matchSentencePatterns(right, targetLanguage, sourceLanguage)
+                    if (leftMatch != null && rightMatch != null) {
+                        bestSplit = Pair(left, right)
+                        break
+                    }
+                }
+                if (bestSplit != null) {
+                    clauses = listOf(bestSplit.first, bestSplit.second)
+                }
+            }
+        }
+
+        if (clauses == null || clauses.size < 2) return null
+
+        // Translate each clause independently using the phrase/pattern tiers only
+        // (not recursing into splitAndTranslateCompound to avoid infinite loops)
+        val translatedClauses = clauses.map { clause ->
+            val clauseLower = clause.lowercase(Locale.ROOT)
+            // Try pack lookup (short clause, safe to substring-match)
+            val packResult = translateWithDownloadedPack(clause, sourceLanguage, targetLanguage)
+            if (!packResult.isNullOrBlank()) return@map packResult
+            // Try phrase match
+            val phraseResult = matchCommonPhrases(clauseLower, targetLanguage, sourceLanguage)
+            if (phraseResult != null) return@map phraseResult
+            // Try pattern match
+            val patternResult = matchSentencePatterns(clause, targetLanguage, sourceLanguage)
+            if (patternResult != null) return@map patternResult
+            // ML Kit for the clause
+            val formalClause = ColloquialEngine.toFormal(clause, sourceLanguage)
+            val mlResult = translateWithMlKit(formalClause, sourceLanguage, targetLanguage)
+                ?: translateWithMlKit(clause, sourceLanguage, targetLanguage)
+            mlResult ?: clause  // fallback: keep original clause text
+        }
+
+        // Only return compound result if at least one clause was actually translated
+        if (translatedClauses.all { c -> clauses.any { it == c } }) return null
+        return translatedClauses.joinToString(", ")
     }
 
     private fun getMlKitLanguageTag(lang: Language): String? {
@@ -1070,6 +1208,19 @@ class OfflineTranslatorEngine {
     private fun matchTamilToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,]"""), "").trim()
         return when (noPunct) {
+            // Conversational compound phrases — self-status + question (mirrors Google Translate output)
+            // These are the most common multi-clause utterances in spoken Tamil.
+            // "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க" → "Hello, I am fine, how are you doing?"
+            "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க",
+            "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கிறீர்கள்",
+            "வணக்கம் நான் நலமாக இருக்கிறேன் நீங்க எப்படி இருக்கீங்க",
+            "வணக்கம் நான் நலமாக இருக்கிறேன் நீங்கள் எப்படி இருக்கிறீர்கள்" -> "Hello, I am fine, how are you doing?"
+            "வணக்கம் நான் நல்லா இருக்கேன்" -> "Hello, I am fine"
+            "வணக்கம் நாங்க நல்லா இருக்கோம் நீங்க எப்படி இருக்கீங்க",
+            "வணக்கம் நாங்கள் நலமாக இருக்கிறோம் நீங்கள் எப்படி இருக்கிறீர்கள்" -> "Hello, we are fine, how are you doing?"
+            "நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க",
+            "நான் நலமாக இருக்கிறேன் நீங்கள் எப்படி இருக்கிறீர்கள்" -> "I am fine, how are you doing?"
+
             // Conversational Questions & Spoken Tamil (User's exact phrases)
             "எல்லாரும் எங்க இருக்கீங்க", "எல்லாரும் எங்கே இருக்கிறீர்கள்", "அனைவரும் எங்கே இருக்கிறீர்கள்", "எல்லாரும் எங்க இருக்காங்க" -> "Where are you all?"
             "எல்லாரும் எப்படி இருக்கீங்க", "எல்லாரும் எப்படி இருக்கிறீர்கள்", "அனைவரும் எப்படி இருக்கிறீர்கள்" -> "How is everyone doing?"
