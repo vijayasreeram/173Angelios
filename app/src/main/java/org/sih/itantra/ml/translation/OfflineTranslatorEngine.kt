@@ -1047,7 +1047,11 @@ class OfflineTranslatorEngine {
                 "medical team needed", "call the doctor", "send doctor", "we need a doctor" -> "மருத்துவக் குழு மற்றும் மருத்துவர் தேவை"
                 "send ambulance", "ambulance needed" -> "உடனடியாக ஆம்புலன்ஸ் அனுப்புங்கள்"
                 "please help us", "help us", "we need help", "send help" -> "தயவுசெய்து எங்களுக்கு உதவுங்கள்"
-                "send help immediately", "immediate help needed" -> "உடனடியாக உதவி அனுப்புங்கள்"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "somebody help me", "anyone help me",
+                "help", "i need assistance", "need help" -> "தயவுசெய்து எனக்கு உதவுங்கள்"
+                "send help immediately", "immediate help needed", "help needed urgently",
+                "urgent help needed", "emergency help needed" -> "உடனடியாக உதவி அனுப்புங்கள்"
                 "water supply exhausted", "water finished" -> "குடிநீர் இருப்பு முற்றிலும் தீர்ந்துவிட்டது"
                 "food supplies finished", "no food" -> "உணவுப் பொருட்கள் தீர்ந்துவிட்டன"
                 "battery is low", "battery low" -> "பேட்டரி அளவு குறைவாக உள்ளது"
@@ -1085,6 +1089,9 @@ class OfflineTranslatorEngine {
                 "we are coming", "we are coming to help" -> "हम मदद के लिए आ रहे हैं"
                 "come quickly" -> "जल्दी आएं"
                 "please help us", "help us", "we need help" -> "कृपया हमारी मदद करें"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "anybody help me", "help", "need help" -> "कृपया मेरी मदद करें"
+                "send help immediately", "urgent help needed", "emergency help needed" -> "तुरंत मदद भेजें"
                 "the route is clear", "route is clear" -> "मार्ग साफ़ और सुरक्षित है"
                 "the road is blocked", "road is blocked" -> "सड़क अवरुद्ध है"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "सड़क अवरुद्ध है, इस तरफ न आएं"
@@ -1107,11 +1114,13 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "నేను బాగున్నాను"
                 "can you hear me" -> "నేను మాట్లాడేది వినపడుతోందా?"
                 "where are you" -> "మీరు ఎక్కడ ఉన్నారు?"
-                "we need help", "help us" -> "మాకు సహాయం కావాలి"
                 "route is clear" -> "మార్గం క్లియర్‌గా ఉంది"
                 "road is blocked" -> "రహదారి మూసివేయబడింది"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "రహదారి మూసివేయబడింది, ఈ మార్గంలో రావద్దు"
                 "we need food and water" -> "మాకు ఆహారం మరియు నీరు అవసరం"
+                "we need help", "help us", "please help us" -> "మాకు సహాయం కావాలి"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "దయచేసి నాకు సహాయం చేయండి"
                 "all clear", "area is secure" -> "అంతా సురక్షితంగా ఉంది"
                 "thank you" -> "ధన్యవాదాలు"
                 else -> null
@@ -1123,7 +1132,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ"
                 "can you hear me" -> "ನನ್ನ ಮಾತು ಕೇಳಿಸುತ್ತಿದೆಯೇ?"
                 "where are you" -> "ನೀವು ಎಲ್ಲಿದ್ದೀರಿ?"
-                "we need help" -> "ನಮಗೆ ಸಹಾಯ ಬೇಕು"
+                "we need help", "help us", "please help us" -> "ನಮಗೆ ಸಹಾಯ ಬೇಕು"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "ದಯವಿಟ್ಟು ನನಗೆ ಸಹಾಯ ಮಾಡಿ"
                 "route is clear" -> "ಮಾರ್ಗ ಸ್ಪಷ್ಟವಾಗಿದೆ"
                 "road is blocked" -> "ರಸ್ತೆ ಬಂದ್ ಆಗಿದೆ"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "ರಸ್ತೆ ಬಂದ್ ಆಗಿದೆ, ಈ ಕಡೆ ಬರಬೇಡಿ"
@@ -1139,7 +1150,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "എനിക്ക് സുഖമാണ്"
                 "can you hear me" -> "ഞാൻ പറയുന്നത് കേൾക്കുന്നുണ്ടോ?"
                 "where are you" -> "നിങ്ങൾ എവിടെയാണ്?"
-                "we need help" -> "ഞങ്ങൾക്ക് സഹായം വേണം"
+                "we need help", "help us", "please help us" -> "ഞങ്ങൾക്ക് സഹായം വേണം"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "ദയവായി എന്നെ സഹായിക്കൂ"
                 "route is clear" -> "പാത സുരക്ഷിതമാണ്"
                 "road is blocked" -> "റോഡ് തടസ്സപ്പെട്ടിരിക്കുന്നു"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "റോഡ് തടസ്സപ്പെട്ടിരിക്കുന്നു, ഈ വഴി വരരുത്"
@@ -1155,7 +1168,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "আমি ভালো আছি"
                 "can you hear me" -> "আপনি কি আমার কথা শুনতে পাচ্ছেন?"
                 "where are you" -> "আপনি কোথায় আছেন?"
-                "we need help", "help us" -> "আমাদের সাহায্য দরকার"
+                "we need help", "help us", "please help us" -> "আমাদের সাহায্য দরকার"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "দয়া করে আমাকে সাহায্য করুন"
                 "route is clear" -> "রাস্তা নিরাপদ"
                 "road is blocked" -> "রাস্তা বন্ধ"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "রাস্তা বন্ধ, এই পথে আসবেন না"
@@ -1171,7 +1186,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "मी ठीक आहे"
                 "can you hear me" -> "तुम्हाला माझा आवाज ऐकू येतो का?"
                 "where are you" -> "तुम्ही कुठे आहात?"
-                "we need help", "help us" -> "आम्हाला मदत हवी आहे"
+                "we need help", "help us", "please help us" -> "आम्हाला मदत हवी आहे"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "कृपया मला मदत करा"
                 "route is clear" -> "मार्ग सुरक्षित आहे"
                 "road is blocked" -> "रस्ता बंद आहे"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "रस्ता बंद आहे, या मार्गाने येऊ नका"
@@ -1187,7 +1204,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "હું ઠીક છું"
                 "can you hear me" -> "શું તમે મને સાંભળી શકો છો?"
                 "where are you" -> "તમે ક્યાં છો?"
-                "we need help", "help us" -> "અમને મદદની જરૂર છે"
+                "we need help", "help us", "please help us" -> "અમને મદદની જરૂર છે"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "કૃપા કરીને મને મદદ કરો"
                 "route is clear" -> "રસ્તો સુરક્ષિત છે"
                 "road is blocked" -> "રસ્તો બંધ છે"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "રસ્તો બંધ છે, આ રસ્તે ન આવો"
@@ -1203,7 +1222,9 @@ class OfflineTranslatorEngine {
                 "i am fine" -> "ਮੈਂ ਠੀਕ ਹਾਂ"
                 "can you hear me" -> "ਕੀ ਤੁਸੀਂ ਮੈਨੂੰ ਸੁਣ ਸਕਦੇ ਹੋ?"
                 "where are you" -> "ਤੁਸੀਂ ਕਿੱਥੇ ਹੋ?"
-                "we need help", "help us" -> "ਸਾਨੂੰ ਮਦਦ ਦੀ ਲੋੜ ਹੈ"
+                "we need help", "help us", "please help us" -> "ਸਾਨੂੰ ਮਦਦ ਦੀ ਲੋੜ ਹੈ"
+                "please help me", "help me", "i need help", "i need your help",
+                "someone help me", "help", "need help" -> "ਕਿਰਪਾ ਕਰਕੇ ਮੇਰੀ ਮਦਦ ਕਰੋ"
                 "route is clear" -> "ਰਸਤਾ ਸਾਫ਼ ਹੈ"
                 "road is blocked" -> "ਰਸਤਾ ਬੰਦ ਹੈ"
                 "the road is blocked do not come this way", "road is blocked do not come this way" -> "ਰਸਤਾ ਬੰਦ ਹੈ, ਇਸ ਪਾਸੇ ਨਾ ਆਓ"
