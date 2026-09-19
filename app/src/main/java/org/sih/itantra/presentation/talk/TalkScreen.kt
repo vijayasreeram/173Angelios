@@ -147,7 +147,7 @@ fun TalkScreen(repository: CommunicationRepository) {
             val trans = withContext(Dispatchers.IO) {
                 try {
                     repository.translatorEngine.translate(activeSentence, targetLangForPreview, selectedLanguage)
-                } catch (_: Exception) { "" }
+                } catch (_: Throwable) { "" }
             }
             liveTamilTranslation = trans
         } else {

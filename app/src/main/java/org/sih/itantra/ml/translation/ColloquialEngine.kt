@@ -11,33 +11,48 @@ import java.util.Locale
  */
 object ColloquialEngine {
 
-    private const val SEPARATORS = " \t\n\r,.!?;:।॥\"'()[]{}<>/\\|–—…-‑'’‚‘“”"
-    private val SEP_CLASS = "[" + Regex.escape(SEPARATORS) + "]"
+    // Safe regex character class for word boundary detection across Unicode and Indic scripts
+    private const val SEP_CLASS = """[\s.,!?;:।॥"\'()\[\]{}<>/\\|–—…‑\-]"""
 
-    private fun wb(word: String): Regex {
-        return Regex("(?:^|(?<=$SEP_CLASS))(?:${Regex.escape(word)})(?:$|(?=$SEP_CLASS))")
+    private val wbCache = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+    private val endWbCache = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+
+    private fun wb(word: String): Regex = wbCache.computeIfAbsent(word) { w ->
+        try {
+            Regex("(?:^|(?<=$SEP_CLASS))(?:${Regex.escape(w)})(?:$|(?=$SEP_CLASS))")
+        } catch (_: Throwable) {
+            Regex("(?:^|\\s)(?:${Regex.escape(w)})(?:$|\\s)")
+        }
     }
 
-    private fun endWb(word: String): Regex {
-        return Regex("(?:${Regex.escape(word)})(?:$|(?=$SEP_CLASS))")
+    private fun endWb(word: String): Regex = endWbCache.computeIfAbsent(word) { w ->
+        try {
+            Regex("(?:${Regex.escape(w)})(?:$|(?=$SEP_CLASS))")
+        } catch (_: Throwable) {
+            Regex("(?:${Regex.escape(w)})(?:$|\\s)")
+        }
     }
 
     fun toColloquial(text: String, targetLang: Language, srcText: String = ""): String {
         if (text.isBlank()) return text
-        val lowerSrc = srcText.lowercase(Locale.ROOT)
-        val isCasualSrc = listOf("hi", "hey", "hello", "bro", "buddy", "dude", "yaar", "machan").any { lowerSrc.contains(it) }
+        return try {
+            val lowerSrc = srcText.lowercase(Locale.ROOT)
+            val isCasualSrc = listOf("hi", "hey", "hello", "bro", "buddy", "dude", "yaar", "machan").any { lowerSrc.contains(it) }
 
-        return when (targetLang) {
-            Language.TAMIL -> colloquialTamil(text, isCasualSrc)
-            Language.HINDI -> colloquialHindi(text, isCasualSrc)
-            Language.TELUGU -> colloquialTelugu(text, isCasualSrc)
-            Language.MALAYALAM -> colloquialMalayalam(text, isCasualSrc)
-            Language.KANNADA -> colloquialKannada(text, isCasualSrc)
-            Language.BENGALI -> colloquialBengali(text, isCasualSrc)
-            Language.MARATHI -> colloquialMarathi(text, isCasualSrc)
-            Language.GUJARATI -> colloquialGujarati(text, isCasualSrc)
-            Language.PUNJABI -> colloquialPunjabi(text, isCasualSrc)
-            else -> text
+            when (targetLang) {
+                Language.TAMIL -> colloquialTamil(text, isCasualSrc)
+                Language.HINDI -> colloquialHindi(text, isCasualSrc)
+                Language.TELUGU -> colloquialTelugu(text, isCasualSrc)
+                Language.MALAYALAM -> colloquialMalayalam(text, isCasualSrc)
+                Language.KANNADA -> colloquialKannada(text, isCasualSrc)
+                Language.BENGALI -> colloquialBengali(text, isCasualSrc)
+                Language.MARATHI -> colloquialMarathi(text, isCasualSrc)
+                Language.GUJARATI -> colloquialGujarati(text, isCasualSrc)
+                Language.PUNJABI -> colloquialPunjabi(text, isCasualSrc)
+                else -> text
+            }
+        } catch (_: Throwable) {
+            text
         }
     }
 
@@ -66,13 +81,17 @@ object ColloquialEngine {
      */
     fun toFormal(text: String, lang: Language): String {
         if (text.isBlank()) return text
-        return when (lang) {
-            Language.TAMIL -> formalTamil(text)
-            Language.HINDI -> formalHindi(text)
-            Language.TELUGU -> formalTelugu(text)
-            Language.KANNADA -> formalKannada(text)
-            Language.MALAYALAM -> formalMalayalam(text)
-            else -> text
+        return try {
+            when (lang) {
+                Language.TAMIL -> formalTamil(text)
+                Language.HINDI -> formalHindi(text)
+                Language.TELUGU -> formalTelugu(text)
+                Language.KANNADA -> formalKannada(text)
+                Language.MALAYALAM -> formalMalayalam(text)
+                else -> text
+            }
+        } catch (_: Throwable) {
+            text
         }
     }
 

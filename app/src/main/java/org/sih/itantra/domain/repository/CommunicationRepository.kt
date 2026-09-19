@@ -247,106 +247,111 @@ class CommunicationRepository(
         _pttState.value = PttState.PROCESSING
 
         scope.launch {
-            val speechVoice = try { speechManager.stopListening().trim() } catch (e: Exception) { "" }
-            val liveText = speechManager.liveTranscript.value.trim()
-            val recognizedText = if (speechVoice.isNotBlank()) speechVoice else liveText
+            try {
+                val speechVoice = try { speechManager.stopListening().trim() } catch (e: Exception) { "" }
+                val liveText = speechManager.liveTranscript.value.trim()
+                val recognizedText = if (speechVoice.isNotBlank()) speechVoice else liveText
 
-            // Determine the actual message text - NEVER use fake canned phrases!
-            val textToUse = when {
-                !customTextOverride.isNullOrBlank() -> customTextOverride.trim()
-                recognizedText.isNotBlank() -> recognizedText
-                else -> null
-            }
+                // Determine the actual message text - NEVER use fake canned phrases!
+                val textToUse = when {
+                    !customTextOverride.isNullOrBlank() -> customTextOverride.trim()
+                    recognizedText.isNotBlank() -> recognizedText
+                    else -> null
+                }
 
-            if (textToUse.isNullOrBlank()) {
-                android.util.Log.d("CommunicationRepo", "No speech detected during PTT, resetting to IDLE without sending default message")
-                _pttState.value = PttState.IDLE
-                return@launch
-            }
+                if (textToUse.isNullOrBlank()) {
+                    android.util.Log.d("CommunicationRepo", "No speech detected during PTT, resetting to IDLE without sending default message")
+                    _pttState.value = PttState.IDLE
+                    return@launch
+                }
 
-            // 1. Offline STT Transcription
-            val sttStart = System.currentTimeMillis()
-            val sttResult = sttEngine.transcribeText(textToUse, _selectedLanguage.value)
-            val sttDuration = System.currentTimeMillis() - sttStart
+                // 1. Offline STT Transcription
+                val sttStart = System.currentTimeMillis()
+                val sttResult = sttEngine.transcribeText(textToUse, _selectedLanguage.value)
+                val sttDuration = System.currentTimeMillis() - sttStart
 
-            // 2. Semantic Extraction (General Comms is strictly non-emergency mode)
-            val semStart = System.currentTimeMillis()
-            val semantic = semanticEncoder.encode(
-                sttResult.transcript,
-                _selectedLanguage.value,
-                _receiverLanguage.value
-            )
-            val semDuration = System.currentTimeMillis() - semStart
+                // 2. Semantic Extraction (General Comms is strictly non-emergency mode)
+                val semStart = System.currentTimeMillis()
+                val semantic = semanticEncoder.encode(
+                    sttResult.transcript,
+                    _selectedLanguage.value,
+                    _receiverLanguage.value
+                )
+                val semDuration = System.currentTimeMillis() - semStart
 
-            // 3. Adaptive Compression (General Comms priority is always NORMAL)
-            _pttState.value = PttState.COMPRESSING
-            val compStart = System.currentTimeMillis()
-            val currentLq = linkMetrics.value.linkQuality
-            val compResult = compressor.compress(
-                sttResult.transcript,
-                semantic,
-                currentLq,
-                Priority.NORMAL
-            )
-            val compDuration = System.currentTimeMillis() - compStart
+                // 3. Adaptive Compression (General Comms priority is always NORMAL)
+                _pttState.value = PttState.COMPRESSING
+                val compStart = System.currentTimeMillis()
+                val currentLq = linkMetrics.value.linkQuality
+                val compResult = compressor.compress(
+                    sttResult.transcript,
+                    semantic,
+                    currentLq,
+                    Priority.NORMAL
+                )
+                val compDuration = System.currentTimeMillis() - compStart
 
-            // 4. Packetization with CRC16 Checksum
-            _pttState.value = PttState.TRANSMITTING
-            val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
-            val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
-            val packet = Packet(
-                senderId = meshRouter.localNodeId,
-                receiverId = targetNodeId,
-                languageId = actualSourceLang.id,
-                priority = Priority.NORMAL,
-                packetType = compResult.packetType,
-                payload = compResult.payload
-            )
+                // 4. Packetization with CRC16 Checksum
+                _pttState.value = PttState.TRANSMITTING
+                val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
+                val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
+                val packet = Packet(
+                    senderId = meshRouter.localNodeId,
+                    receiverId = targetNodeId,
+                    languageId = actualSourceLang.id,
+                    priority = Priority.NORMAL,
+                    packetType = compResult.packetType,
+                    payload = compResult.payload
+                )
 
-            // 5. Mesh Queueing and Transmission
-            val txStart = System.currentTimeMillis()
-            meshRouter.enqueueOutgoing(packet)
-            val txSuccess = transportManager.transmitPacket(packet, linkMetrics.value.activeTransport)
-            val txDuration = System.currentTimeMillis() - txStart
+                // 5. Mesh Queueing and Transmission
+                val txStart = System.currentTimeMillis()
+                meshRouter.enqueueOutgoing(packet)
+                val txSuccess = transportManager.transmitPacket(packet, linkMetrics.value.activeTransport)
+                val txDuration = System.currentTimeMillis() - txStart
 
-            networkMonitor.recordPacketTransmission(txSuccess, txDuration)
+                networkMonitor.recordPacketTransmission(txSuccess, txDuration)
 
-            // 6. Log in Encrypted Local Database
-            val telemetry = TechnicalTelemetry(
-                sttDurationMs = sttDuration,
-                semanticDurationMs = semDuration,
-                compressionDurationMs = compDuration,
-                networkTransitDurationMs = txDuration,
-                reassemblyDurationMs = 5L,
-                ttsDurationMs = 85L,
-                payloadBytes = packet.payloadLength,
-                rawEquivalentBytes = 64000
-            )
+                // 6. Log in Encrypted Local Database
+                val telemetry = TechnicalTelemetry(
+                    sttDurationMs = sttDuration,
+                    semanticDurationMs = semDuration,
+                    compressionDurationMs = compDuration,
+                    networkTransitDurationMs = txDuration,
+                    reassemblyDurationMs = 5L,
+                    ttsDurationMs = 85L,
+                    payloadBytes = packet.payloadLength,
+                    rawEquivalentBytes = 64000
+                )
 
-            val chatMessage = ChatMessage(
-                senderId = meshRouter.localNodeId,
-                senderName = "${userProfile.value.username} (You)",
-                receiverId = targetNodeId,
-                text = sttResult.transcript,
-                reconstructedSpeechText = semanticDecoder.decode(semantic, _selectedLanguage.value),
-                priority = semantic.priority,
-                packetType = compResult.packetType,
-                transport = linkMetrics.value.activeTransport,
-                language = _selectedLanguage.value,
-                status = if (txSuccess) DeliveryStatus.DELIVERED_ACK else DeliveryStatus.FAILED,
-                isIncoming = false,
-                timestamp = System.currentTimeMillis(),
-                telemetry = telemetry
-            )
+                val chatMessage = ChatMessage(
+                    senderId = meshRouter.localNodeId,
+                    senderName = "${userProfile.value.username} (You)",
+                    receiverId = targetNodeId,
+                    text = sttResult.transcript,
+                    reconstructedSpeechText = semanticDecoder.decode(semantic, _selectedLanguage.value),
+                    priority = semantic.priority,
+                    packetType = compResult.packetType,
+                    transport = linkMetrics.value.activeTransport,
+                    language = _selectedLanguage.value,
+                    status = if (txSuccess) DeliveryStatus.DELIVERED_ACK else DeliveryStatus.FAILED,
+                    isIncoming = false,
+                    timestamp = System.currentTimeMillis(),
+                    telemetry = telemetry
+                )
 
-            database.saveMessage(chatMessage)
+                database.saveMessage(chatMessage)
 
-            _pttState.value = if (semantic.priority == Priority.EMERGENCY) {
-                PttState.EMERGENCY
-            } else if (txSuccess) {
-                PttState.DELIVERED
-            } else {
-                PttState.FAILED
+                _pttState.value = if (semantic.priority == Priority.EMERGENCY) {
+                    PttState.EMERGENCY
+                } else if (txSuccess) {
+                    PttState.DELIVERED
+                } else {
+                    PttState.FAILED
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("CommunicationRepository", "PTT capture and send failed: ${t.message}", t)
+                _pttState.value = PttState.FAILED
             }
         }
     }
@@ -356,142 +361,146 @@ class CommunicationRepository(
      * Receives packet -> verifies CRC16 -> decompresses -> reconstructs text in receiver language -> synthesizes TTS
      */
     private fun handleDeliveredPacket(packet: Packet) {
-        // CRITICAL CHECK: Ignore packets sent by ourselves!
-        // The sender speaks into their mic; only the opposite recipient should hear the TTS playback!
-        // Also ensures local phone is never registered as a peer on its own radar.
-        val cleanSender = packet.senderId.trim()
-        val cleanLocal = localNodeId.trim()
-        if (cleanSender.equals(cleanLocal, ignoreCase = true)) {
-            android.util.Log.d("CommunicationRepository", "Suppressing self packet from $cleanSender - will not process or play TTS on sender phone")
-            return
-        }
-
-        // Handle discovery beacon packets without producing chat/TTS
-        if (packet.packetType == PacketType.HELLO || packet.packetType == PacketType.HEARTBEAT) {
-            var peerBattery = batteryManager.batteryLevel.value
-            val peerUsername = try {
-                val payloadStr = String(packet.payload, Charsets.UTF_8)
-                if (payloadStr.startsWith("iTANTRA_PEER|")) {
-                    val parts = payloadStr.split("|")
-                    if (parts.size >= 3) {
-                        peerBattery = parts[2].trim().toIntOrNull() ?: peerBattery
-                    }
-                    if (parts.size >= 2 && parts[1].isNotBlank()) parts[1].trim() else "User ${packet.senderId}"
-                } else {
-                    "User ${packet.senderId}"
-                }
-            } catch (_: Exception) {
-                "User ${packet.senderId}"
+        try {
+            // CRITICAL CHECK: Ignore packets sent by ourselves!
+            // The sender speaks into their mic; only the opposite recipient should hear the TTS playback!
+            // Also ensures local phone is never registered as a peer on its own radar.
+            val cleanSender = packet.senderId.trim()
+            val cleanLocal = localNodeId.trim()
+            if (cleanSender.equals(cleanLocal, ignoreCase = true)) {
+                android.util.Log.d("CommunicationRepository", "Suppressing self packet from $cleanSender - will not process or play TTS on sender phone")
+                return
             }
 
+            // Handle discovery beacon packets without producing chat/TTS
+            if (packet.packetType == PacketType.HELLO || packet.packetType == PacketType.HEARTBEAT) {
+                var peerBattery = batteryManager.batteryLevel.value
+                val peerUsername = try {
+                    val payloadStr = String(packet.payload, Charsets.UTF_8)
+                    if (payloadStr.startsWith("iTANTRA_PEER|")) {
+                        val parts = payloadStr.split("|")
+                        if (parts.size >= 3) {
+                            peerBattery = parts[2].trim().toIntOrNull() ?: peerBattery
+                        }
+                        if (parts.size >= 2 && parts[1].isNotBlank()) parts[1].trim() else "User ${packet.senderId}"
+                    } else {
+                        "User ${packet.senderId}"
+                    }
+                } catch (_: Exception) {
+                    "User ${packet.senderId}"
+                }
+
+                val remoteNode = org.sih.itantra.domain.model.NetworkNode(
+                    id = packet.senderId,
+                    name = peerUsername,
+                    rssi = -55,
+                    batteryPct = peerBattery,
+                    transportType = TransportType.WIFI_DIRECT,
+                    hopCount = 1,
+                    isDirectNeighbor = true
+                )
+                database.addOrUpdateNode(remoteNode)
+                return
+            }
+
+            val decompressed = compressor.decompress(packet.payload, packet.packetType, packet.language)
+            val isSos = packet.packetType == PacketType.SOS || packet.packetType == PacketType.EMERGENCY || packet.priority == Priority.EMERGENCY
+
+            // Extract sender username from payload or known nodes
+            val rawDistressUser = if (isSos && decompressed.semantic?.rawText?.isNotBlank() == true &&
+                !decompressed.semantic.rawText.startsWith("SOS_BEACON") &&
+                !decompressed.semantic.rawText.startsWith("CRITICAL SOS")) {
+                decompressed.semantic.rawText
+            } else null
+
+            val senderDisplayName = rawDistressUser
+                ?: database.nodesFlow.value.find { it.id == packet.senderId }?.name
+                ?: "Operator ${packet.senderId.takeLast(4)}"
+
+            // 1. Extract base text from incoming packet
+            val baseText = if (isSos) {
+                when (_selectedLanguage.value) {
+                    Language.TAMIL -> "அவசர எச்சரிக்கை! $senderDisplayName அவசர உதவி கோரியுள்ளார்! உடனடி உதவி தேவை!"
+                    Language.HINDI -> "आपातकालीन चेतावनी! $senderDisplayName ने आपातकालीन संकट चेतावनी भेजी है! तत्काल सहायता चाहिए!"
+                    Language.TELUGU -> "అత్యవసర హెచ్చరిక! $senderDisplayName అత్యవసర సహాయం కోరారు! తక్షణ సహాయం కావాలి!"
+                    Language.KANNADA -> "ತುರ್ತು ಎಚ್ಚರಿಕೆ! $senderDisplayName ತುರ್ತು ಸಹಾಯ ಕೋರಿದ್ದಾರೆ! ತಕ್ಷಣ ನೆರವು ಬೇಕು!"
+                    Language.MALAYALAM -> "അടിയന്തര മുന്നറിയിപ്പ്! $senderDisplayName അടിയന്തര സഹായം ആവശ്യപ്പെട്ടു! ഉടൻ സഹായം എത്തിക്കുക!"
+                    Language.BENGALI -> "জরুরী সতর্কতা! $senderDisplayName জরুরী সহায়তা চেয়েছেন!"
+                    Language.MARATHI -> "तातडीचा इशारा! $senderDisplayName यांनी आणीबाणी मदतीची मागणी केली आहे!"
+                    Language.GUJARATI -> "કટોકટી ચેતવણી! $senderDisplayName એ તાત્કાલિક સહાયની વિનંતી કરી છે!"
+                    Language.ODIA -> "ଜରୁରୀକାଳୀନ ଚେତାବନୀ! $senderDisplayName ଜରୁରୀ ପରିସ୍ଥିତିରେ ଅଛନ୍ତି! ତୁରନ୍ତ ସହାୟତା ଆବଶ୍ୟକ!"
+                    Language.PUNJABI -> "ਐਮਰਜੈਂਸੀ ਅਲਰਟ! $senderDisplayName ਨੇ ਤੁਰੰਤ ਮਦਦ ਦੀ ਬੇਨਤੀ ਕੀਤੀ ਹੈ!"
+                    else -> "Emergency SOS! User $senderDisplayName is in emergency! Need immediate assistance!"
+                }
+            } else if (decompressed.semantic != null && decompressed.semantic.rawText.isNotBlank()) {
+                decompressed.semantic.rawText
+            } else if (decompressed.reconstructedText.isNotBlank()) {
+                decompressed.reconstructedText
+            } else if (decompressed.semantic != null) {
+                semanticDecoder.decode(decompressed.semantic, _selectedLanguage.value)
+            } else {
+                "Radio transmission received"
+            }
+
+            // 2. Offline Translate into this receiver's selected language (e.g. Tamil, Hindi, or English)
+            val actualIncomingLanguage = translatorEngine.detectScriptLanguage(baseText) ?: packet.language
+            val localTargetLanguage = _selectedLanguage.value
+
+            val reconstructedText = if (isSos) {
+                baseText
+            } else if (actualIncomingLanguage == localTargetLanguage) {
+                baseText
+            } else {
+                val translated = translatorEngine.translate(baseText, localTargetLanguage, actualIncomingLanguage)
+                if (translated.isNotBlank()) {
+                    translated
+                } else if (packet.priority == Priority.EMERGENCY && decompressed.semantic != null) {
+                    semanticDecoder.decode(decompressed.semantic, localTargetLanguage)
+                } else {
+                    baseText
+                }
+            }
+
+            val incomingMessage = ChatMessage(
+                id = packet.messageId.toString(),
+                senderId = packet.senderId,
+                senderName = senderDisplayName,
+                receiverId = packet.receiverId,
+                text = reconstructedText,
+                reconstructedSpeechText = reconstructedText,
+                priority = packet.priority,
+                packetType = packet.packetType,
+                transport = linkMetrics.value.activeTransport,
+                language = _selectedLanguage.value,
+                status = DeliveryStatus.RECEIVED,
+                isIncoming = true,
+                timestamp = System.currentTimeMillis(),
+                telemetry = TechnicalTelemetry(
+                    payloadBytes = packet.payloadLength,
+                    rawEquivalentBytes = 64000
+                )
+            )
+
+            database.saveMessage(incomingMessage)
+
+            // Automatically register incoming peer in discovered mesh nodes list using username and real battery
+            val existingBattery = database.nodesFlow.value.find { it.id == packet.senderId }?.batteryPct ?: batteryManager.batteryLevel.value
             val remoteNode = org.sih.itantra.domain.model.NetworkNode(
                 id = packet.senderId,
-                name = peerUsername,
-                rssi = -55,
-                batteryPct = peerBattery,
-                transportType = TransportType.WIFI_DIRECT,
+                name = senderDisplayName,
+                rssi = -62,
+                batteryPct = existingBattery,
+                transportType = linkMetrics.value.activeTransport,
                 hopCount = 1,
                 isDirectNeighbor = true
             )
             database.addOrUpdateNode(remoteNode)
-            return
+
+            // Synthesize speech locally if not muted
+            ttsEngine.speak(reconstructedText, _selectedLanguage.value)
+        } catch (t: Throwable) {
+            android.util.Log.e("CommunicationRepository", "Error handling delivered packet: ${t.message}", t)
         }
-
-        val decompressed = compressor.decompress(packet.payload, packet.packetType, packet.language)
-        val isSos = packet.packetType == PacketType.SOS || packet.packetType == PacketType.EMERGENCY || packet.priority == Priority.EMERGENCY
-
-        // Extract sender username from payload or known nodes
-        val rawDistressUser = if (isSos && decompressed.semantic?.rawText?.isNotBlank() == true &&
-            !decompressed.semantic.rawText.startsWith("SOS_BEACON") &&
-            !decompressed.semantic.rawText.startsWith("CRITICAL SOS")) {
-            decompressed.semantic.rawText
-        } else null
-
-        val senderDisplayName = rawDistressUser
-            ?: database.nodesFlow.value.find { it.id == packet.senderId }?.name
-            ?: "Operator ${packet.senderId.takeLast(4)}"
-
-        // 1. Extract base text from incoming packet
-        val baseText = if (isSos) {
-            when (_selectedLanguage.value) {
-                Language.TAMIL -> "அவசர எச்சரிக்கை! $senderDisplayName அவசர உதவி கோரியுள்ளார்! உடனடி உதவி தேவை!"
-                Language.HINDI -> "आपातकालीन चेतावनी! $senderDisplayName ने आपातकालीन संकट चेतावनी भेजी है! तत्काल सहायता चाहिए!"
-                Language.TELUGU -> "అత్యవసర హెచ్చరిక! $senderDisplayName అత్యవసర సహాయం కోరారు! తక్షణ సహాయం కావాలి!"
-                Language.KANNADA -> "ತುರ್ತು ಎಚ್ಚರಿಕೆ! $senderDisplayName ತುರ್ತು ಸಹಾಯ ಕೋರಿದ್ದಾರೆ! ತಕ್ಷಣ ನೆರವು ಬೇಕು!"
-                Language.MALAYALAM -> "അടിയന്തര മുന്നറിയിപ്പ്! $senderDisplayName അടിയന്തര സഹായം ആവശ്യപ്പെട്ടു! ഉടൻ സഹായം എത്തിക്കുക!"
-                Language.BENGALI -> "জরুরী সতর্কতা! $senderDisplayName জরুরী সহায়তা চেয়েছেন!"
-                Language.MARATHI -> "तातडीचा इशारा! $senderDisplayName यांनी आणीबाणी मदतीची मागणी केली आहे!"
-                Language.GUJARATI -> "કટોકટી ચેતવણી! $senderDisplayName એ તાત્કાલિક સહાયની વિનંતી કરી છે!"
-                Language.ODIA -> "ଜରୁରୀକାଳୀନ ଚେତାବନୀ! $senderDisplayName ଜରୁରୀ ପରିସ୍ଥିତିରେ ଅଛନ୍ତି! ତୁରନ୍ତ ସହାୟତା ଆବଶ୍ୟକ!"
-                Language.PUNJABI -> "ਐਮਰਜੈਂਸੀ ਅਲਰਟ! $senderDisplayName ਨੇ ਤੁਰੰਤ ਮਦਦ ਦੀ ਬੇਨਤੀ ਕੀਤੀ ਹੈ!"
-                else -> "Emergency SOS! User $senderDisplayName is in emergency! Need immediate assistance!"
-            }
-        } else if (decompressed.semantic != null && decompressed.semantic.rawText.isNotBlank()) {
-            decompressed.semantic.rawText
-        } else if (decompressed.reconstructedText.isNotBlank()) {
-            decompressed.reconstructedText
-        } else if (decompressed.semantic != null) {
-            semanticDecoder.decode(decompressed.semantic, _selectedLanguage.value)
-        } else {
-            "Radio transmission received"
-        }
-
-        // 2. Offline Translate into this receiver's selected language (e.g. Tamil, Hindi, or English)
-        val actualIncomingLanguage = translatorEngine.detectScriptLanguage(baseText) ?: packet.language
-        val localTargetLanguage = _selectedLanguage.value
-
-        val reconstructedText = if (isSos) {
-            baseText
-        } else if (actualIncomingLanguage == localTargetLanguage) {
-            baseText
-        } else {
-            val translated = translatorEngine.translate(baseText, localTargetLanguage, actualIncomingLanguage)
-            if (translated.isNotBlank()) {
-                translated
-            } else if (packet.priority == Priority.EMERGENCY && decompressed.semantic != null) {
-                semanticDecoder.decode(decompressed.semantic, localTargetLanguage)
-            } else {
-                baseText
-            }
-        }
-
-        val incomingMessage = ChatMessage(
-            id = packet.messageId.toString(),
-            senderId = packet.senderId,
-            senderName = senderDisplayName,
-            receiverId = packet.receiverId,
-            text = reconstructedText,
-            reconstructedSpeechText = reconstructedText,
-            priority = packet.priority,
-            packetType = packet.packetType,
-            transport = linkMetrics.value.activeTransport,
-            language = _selectedLanguage.value,
-            status = DeliveryStatus.RECEIVED,
-            isIncoming = true,
-            timestamp = System.currentTimeMillis(),
-            telemetry = TechnicalTelemetry(
-                payloadBytes = packet.payloadLength,
-                rawEquivalentBytes = 64000
-            )
-        )
-
-        database.saveMessage(incomingMessage)
-
-        // Automatically register incoming peer in discovered mesh nodes list using username and real battery
-        val existingBattery = database.nodesFlow.value.find { it.id == packet.senderId }?.batteryPct ?: batteryManager.batteryLevel.value
-        val remoteNode = org.sih.itantra.domain.model.NetworkNode(
-            id = packet.senderId,
-            name = senderDisplayName,
-            rssi = -62,
-            batteryPct = existingBattery,
-            transportType = linkMetrics.value.activeTransport,
-            hopCount = 1,
-            isDirectNeighbor = true
-        )
-        database.addOrUpdateNode(remoteNode)
-
-        // Synthesize speech locally if not muted
-        ttsEngine.speak(reconstructedText, _selectedLanguage.value)
     }
 
     /**

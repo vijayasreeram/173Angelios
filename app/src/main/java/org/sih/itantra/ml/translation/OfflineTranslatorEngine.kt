@@ -436,11 +436,25 @@ class OfflineTranslatorEngine {
     fun translate(
         inputText: String,
         targetLanguage: Language,
-        sourceLanguage: Language = Language.ENGLISH
+        sourceLanguage: Language = Language.ENGLISH,
+        depth: Int = 0
     ): String {
         val trimmed = inputText.trim().nfc()
         if (trimmed.isBlank()) {
             return trimmed
+        }
+
+        // Clean outer wrapping brackets/parentheses like "(we had lunch )" -> "we had lunch"
+        val unbracketed = trimmed
+            .removeSurrounding("(", ")").trim()
+            .removeSurrounding("[", "]").trim()
+            .removeSurrounding("{", "}").trim()
+            .removeSurrounding("\"", "\"").trim()
+            .removeSurrounding("'", "'").trim()
+
+        if (unbracketed.isNotBlank() && unbracketed != trimmed) {
+            val res = translate(unbracketed, targetLanguage, sourceLanguage, depth = depth)
+            if (res.isNotBlank()) return res
         }
 
         // Auto-detect if input text belongs to an Indic script
@@ -471,14 +485,14 @@ class OfflineTranslatorEngine {
                         translationCache[cacheKey] = directPackEn
                         return directPackEn
                     } else {
-                        val indicFromEn = translate(directPackEn, targetLanguage, Language.ENGLISH)
+                        val indicFromEn = translate(directPackEn, targetLanguage, Language.ENGLISH, depth = depth + 1)
                         translationCache[cacheKey] = indicFromEn
                         return indicFromEn
                     }
                 }
                 // Normalize to semantic Tamil script and translate
                 val semTamil = TanglishEngine.tanglishToSemanticTamil(trimmed)
-                val res = translate(semTamil, targetLanguage, Language.TAMIL)
+                val res = translate(semTamil, targetLanguage, Language.TAMIL, depth = depth + 1)
                 translationCache[cacheKey] = res
                 return res
             }
@@ -522,11 +536,12 @@ class OfflineTranslatorEngine {
 
         // Tier 2: Compound Sentence Splitter (Google Translate-style multi-clause handling)
         // Splits multi-clause sentences at punctuation, conjunctions, or clause boundaries
-        // and translates each clause independently, producing complete translations without dropping words
+        // and translates each clause independently, producing complete translations without dropping words.
+        // Guarded by depth == 0 to strictly prevent mutual recursion and stack overflow!
         val inputWordCount = trimmed.split(Regex("""\s+""")).filter { it.isNotBlank() }.size
-        if (inputWordCount >= 2) {
-            val compoundResult = splitAndTranslateCompound(trimmed, actualSource, targetLanguage)
-                ?: if (formalText != trimmed) splitAndTranslateCompound(formalText, actualSource, targetLanguage) else null
+        if (inputWordCount >= 2 && depth == 0) {
+            val compoundResult = splitAndTranslateCompound(trimmed, actualSource, targetLanguage, depth = depth)
+                ?: if (formalText != trimmed) splitAndTranslateCompound(formalText, actualSource, targetLanguage, depth = depth) else null
             if (!compoundResult.isNullOrBlank()) {
                 val colloquialCompound = ColloquialEngine.toColloquial(compoundResult, targetLanguage, trimmed)
                 translationCache[cacheKey] = colloquialCompound
@@ -598,7 +613,8 @@ class OfflineTranslatorEngine {
     private fun splitAndTranslateCompound(
         text: String,
         sourceLanguage: Language,
-        targetLanguage: Language
+        targetLanguage: Language,
+        depth: Int = 0
     ): String? {
         val cleanText = text.trim()
 
@@ -610,8 +626,8 @@ class OfflineTranslatorEngine {
             val c1 = cleanText.substring(0, splitIdx).trim()
             val c2 = cleanText.substring(punctMatch.range.last + 1).trim()
             if (c1.isNotBlank() && c2.isNotBlank()) {
-                val t1 = translate(c1, targetLanguage, sourceLanguage)
-                val t2 = translate(c2, targetLanguage, sourceLanguage)
+                val t1 = translate(c1, targetLanguage, sourceLanguage, depth = depth + 1)
+                val t2 = translate(c2, targetLanguage, sourceLanguage, depth = depth + 1)
                 if (t1 != c1 || t2 != c2) {
                     val sep = if (t1.endsWith("?") || t1.endsWith(".") || t1.endsWith("!")) " " else ", "
                     return "$t1$sep$t2"
@@ -1055,6 +1071,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "நீங்கள் எங்கே போகிறீர்கள்?"
                 "what are you doing" -> "நீங்கள் என்ன செய்கிறீர்கள்?"
 
+                // Conversational & Daily Life / Meals (High-Fidelity)
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "நாங்கள் மதிய உணவு சாப்பிட்டோம்"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "நான் மதிய உணவு சாப்பிட்டேன்"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "நீங்கள் மதிய உணவு சாப்பிட்டீர்களா?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "நாங்கள் இரவு உணவு சாப்பிட்டோம்"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "நான் இரவு உணவு சாப்பிட்டேன்"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "நாங்கள் காலை உணவு சாப்பிட்டோம்"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "நான் காலை உணவு சாப்பிட்டேன்"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "நாங்கள் மதிய உணவு சாப்பிடுகிறோம்"
+                "food is ready", "the food is ready" -> "உணவு தயாராக உள்ளது"
+
                 // Greetings & Basics
                 "hello", "hi", "hey" -> "வணக்கம்"
                 "good morning" -> "காலை வணக்கம்"
@@ -1149,6 +1176,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "आप कहाँ जा रहे हैं?"
                 "what are you doing" -> "आप क्या कर रहे हैं?"
 
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "हमने दोपहर का भोजन कर लिया"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "मैंने दोपहर का भोजन कर लिया"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "क्या आपने दोपहर का भोजन किया?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "हमने रात का भोजन कर लिया"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "मैंने रात का भोजन कर लिया"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "हमने नाश्ता कर लिया"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "मैंने नाश्ता कर लिया"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "हम दोपहर का भोजन कर रहे हैं"
+                "food is ready", "the food is ready" -> "खाना तैयार है"
+
                 "hello", "hi", "hey" -> "नमस्ते"
                 "how are you", "how are you doing" -> "आप कैसे हैं?"
                 "i am fine", "i am good", "fine" -> "मैं ठीक हूँ"
@@ -1197,6 +1235,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "మీరు ఎక్కడికి వెళ్తున్నారు?"
                 "what are you doing" -> "మీరు ఏమి చేస్తున్నారు?"
 
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "మేము మధ్యాహ్న భోజనం చేశాము"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "నేను మధ్యాహ్న భోజనం చేశాను"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "మీరు మధ్యాహ్న భోజనం చేశారా?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "మేము రాత్రి భోజనం చేశాము"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "నేను రాత్రి భోజనం చేశాను"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "మేము అల్పాహారం తిన్నాము"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "నేను అల్పాహారం తిన్నాను"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "మేము భోజనం చేస్తున్నాము"
+                "food is ready", "the food is ready" -> "ఆహారం సిద్ధంగా ఉంది"
+
                 "hello", "hi" -> "నమస్కారం"
                 "how are you" -> "మీరు ఎలా ఉన్నారు?"
                 "i am fine" -> "నేను బాగున్నాను"
@@ -1229,6 +1278,17 @@ class OfflineTranslatorEngine {
                 "can you help us", "could you help us" -> "ದಯವಿಟ್ಟು ನಮಗೆ ಸಹಾಯ ಮಾಡಬಹುದೇ?"
                 "where are you going" -> "ನೀವು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತಿದ್ದೀರಿ?"
                 "what are you doing" -> "ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?"
+
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "ನಾವು ಮಧ್ಯಾಹ್ನದ ಊಟ ಮಾಡಿದ್ದೇವೆ"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "ನಾನು ಮಧ್ಯಾಹ್ನದ ಊಟ ಮಾಡಿದ್ದೇನೆ"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "ನೀವು ಮಧ್ಯಾಹ್ನದ ಊಟ ಮಾಡಿದಿರಾ?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "ನಾವು ರಾತ್ರಿಯ ಊಟ ಮಾಡಿದ್ದೇವೆ"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "ನಾನು ರಾತ್ರಿಯ ಊಟ ಮಾಡಿದ್ದೇನೆ"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "ನಾವು ಉಪಾಹಾರ ಸೇವಿಸಿದ್ದೇವೆ"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "ನಾನು ಉಪಾಹಾರ ಸೇವಿಸಿದ್ದೇನೆ"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "ನಾವು ಊಟ ಮಾಡುತ್ತಿದ್ದೇವೆ"
+                "food is ready", "the food is ready" -> "ಊಟ ಸಿದ್ಧವಾಗಿದೆ"
 
                 "hello", "hi" -> "ನಮಸ್ಕಾರ"
                 "how are you" -> "ನೀವು ಹೇಗಿದ್ದೀರಿ?"
@@ -1263,6 +1323,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "നിങ്ങൾ എവിടെ പോകുന്നു?"
                 "what are you doing" -> "നിങ്ങൾ എന്താണ് ചെയ്യുന്നത്?"
 
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "ഞങ്ങൾ ഉച്ചഭക്ഷണം കഴിച്ചു"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "ഞാൻ ഉച്ചഭക്ഷണം കഴിച്ചു"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "നിങ്ങൾ ഉച്ചഭക്ഷണം കഴിച്ചോ?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "ഞങ്ങൾ അത്താഴം കഴിച്ചു"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "ഞാൻ അത്താഴം കഴിച്ചു"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "ഞങ്ങൾ പ്രഭാതഭക്ഷണം കഴിച്ചു"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "ഞാൻ പ്രഭാതഭക്ഷണം കഴിച്ചു"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "ഞങ്ങൾ ഭക്ഷണം കഴിക്കുകയാണ്"
+                "food is ready", "the food is ready" -> "ഭക്ഷണം തയ്യാറാണ്"
+
                 "hello", "hi" -> "നമസ്കാരം"
                 "how are you" -> "സുഖമാണോ?"
                 "i am fine" -> "എനിക്ക് സുഖമാണ്"
@@ -1295,6 +1366,17 @@ class OfflineTranslatorEngine {
                 "can you help us", "could you help us" -> "দয়া করে আপনি কি আমাদের সাহায্য করতে পারেন?"
                 "where are you going" -> "আপনি কোথায় যাচ্ছেন?"
                 "what are you doing" -> "আপনি কি করছেন?"
+
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "আমরা দুপুরের খাবার খেয়েছি"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "আমি দুপুরের খাবার খেয়েছি"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "আপনি কি দুপুরের খাবার খেয়েছেন?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "আমরা রাতের খাবার খেয়েছি"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "আমি রাতের খাবার খেয়েছি"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "আমরা প্রাতঃরাশ করেছি"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "আমি প্রাতঃরাশ করেছি"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "আমরা খাবার খাচ্ছি"
+                "food is ready", "the food is ready" -> "খাবার তৈরি"
 
                 "hello", "hi" -> "নমস্কার"
                 "how are you" -> "আপনি কেমন আছেন?"
@@ -1329,6 +1411,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "तुम्ही कुठे जात आहात?"
                 "what are you doing" -> "तुम्ही काय करत आहात?"
 
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "आम्ही दुपारचे जेवण केले आहे"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "मी दुपारचे जेवण केले आहे"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "तुम्ही दुपारचे जेवण केले का?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "आम्ही रात्रीचे जेवण केले आहे"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "मी रात्रीचे जेवण केले आहे"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "आम्ही नाश्ता केला आहे"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "मी नाश्ता केला आहे"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "आम्ही जेवत आहोत"
+                "food is ready", "the food is ready" -> "जेवण तयार आहे"
+
                 "hello", "hi" -> "नमस्कार"
                 "how are you" -> "तुम्ही कसे आहात?"
                 "i am fine" -> "मी ठीक आहे"
@@ -1361,6 +1454,17 @@ class OfflineTranslatorEngine {
                 "can you help us", "could you help us" -> "કૃપા કરીને શું તમે અમને મદદ કરી શકો છો?"
                 "where are you going" -> "તમે ક્યાં જઈ રહ્યા છો?"
                 "what are you doing" -> "તમે શું કરી રહ્યા છો?"
+
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "અમે બપોરનું ભોજન લીધું છે"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "મેં બપોરનું ભોજન લીધું છે"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "તમે બપોરનું ભોજન લીધું?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "અમે રાત્રિભોજન લીધું છે"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "મેં રાત્રિભોજન લીધું છે"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "અમે નાસ્તો કર્યો છે"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "મેં નાસ્તો કર્યો છે"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "અમે જમી રહ્યા છીએ"
+                "food is ready", "the food is ready" -> "જમવાનું તૈયાર છે"
 
                 "hello", "hi" -> "નમસ્તે"
                 "how are you" -> "તમે કેમ છો?"
@@ -1395,6 +1499,17 @@ class OfflineTranslatorEngine {
                 "where are you going" -> "ਤੁਸੀਂ ਕਿੱਥੇ ਜਾ ਰਹੇ ਹੋ?"
                 "what are you doing" -> "ਤੁਸੀਂ ਕੀ ਕਰ ਰਹੇ ਹੋ?"
 
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "ਅਸੀਂ ਦੁਪਹਿਰ ਦਾ ਖਾਣਾ ਖਾ ਲਿਆ ਹੈ"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "ਮੈਂ ਦੁਪਹਿਰ ਦਾ ਖਾਣਾ ਖਾ ਲਿਆ ਹੈ"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "ਕੀ ਤੁਸੀਂ ਦੁਪਹਿਰ ਦਾ ਖਾਣਾ ਖਾ ਲਿਆ?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "ਅਸੀਂ ਰਾਤ ਦਾ ਖਾਣਾ ਖਾ ਲਿਆ ਹੈ"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "ਮੈਂ ਰਾਤ ਦਾ ਖਾਣਾ ਖਾ ਲਿਆ ਹੈ"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "ਅਸੀਂ ਨਾਸ਼ਤਾ ਕਰ ਲਿਆ ਹੈ"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "ਮੈਂ ਨਾਸ਼ਤਾ ਕਰ ਲਿਆ ਹੈ"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "ਅਸੀਂ ਖਾਣਾ ਖਾ ਰਹੇ ਹਾਂ"
+                "food is ready", "the food is ready" -> "ਖਾਣਾ ਤਿਆਰ ਹੈ"
+
                 "hello", "hi" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ"
                 "how are you" -> "ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
                 "i am fine" -> "ਮੈਂ ਠੀਕ ਹਾਂ"
@@ -1409,6 +1524,41 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "ਸਾਨੂੰ ਭੋਜਨ ਅਤੇ ਪਾਣੀ ਦੀ ਲੋੜ ਹੈ"
                 "all clear" -> "ਸਭ ਠੀਕ ਹੈ"
                 "thank you" -> "ਧੰਨਵਾਦ"
+                else -> null
+            }
+
+            Language.ODIA -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you" -> "ନମସ୍କାର, ଆପଣ କେମିତି ଅଛନ୍ତି?"
+                "i am fine how are you", "i am good how are you", "fine how are you" -> "ମୁଁ ଭଲ ଅଛି, ଆପଣ କେମିତି ଅଛନ୍ତି?"
+                "we are fine how are you", "we are good how are you" -> "ଆମେ ଭଲ ଅଛୁ, ଆପଣ କେମିତି ଅଛନ୍ତି?"
+                "hello where are you", "hi where are you" -> "ନମସ୍କାର, ଆପଣ କେଉଁଠି ଅଛନ୍ତି?"
+                "hello what are you doing", "hi what are you doing" -> "ନମସ୍କାର, ଆପଣ କଣ କରୁଛନ୍ତି?"
+                "thank you very much", "thank you so much", "thanks a lot" -> "ବହୁତ ଧନ୍ୟବାଦ"
+                "can you help me", "could you help me" -> "ଦୟାକରି ଆପଣ ମତେ ସାହାଯ୍ୟ କରିପାରିବେ କି?"
+                "can you help us", "could you help us" -> "ଦୟାକରି ଆପଣ ଆମକୁ ସାହାଯ୍ୟ କରିପାରିବେ କି?"
+                "hello", "hi" -> "ନମସ୍କାର"
+                "how are you" -> "ଆପଣ କେମିତି ଅଛନ୍ତି?"
+                "i am fine" -> "ମୁଁ ଭଲ ଅଛି"
+                "we are fine" -> "ଆମେ ଭଲ ଅଛୁ"
+                "we need help", "help us", "please help us" -> "ଆମକୁ ସାହାଯ୍ୟ ଦରକାର"
+                "route is clear" -> "ରାସ୍ତା ସଫା ଅଛି"
+                "road is blocked" -> "ରାସ୍ତା ବନ୍ଦ ଅଛି"
+                "the road is blocked do not come this way" -> "ରାସ୍ତା ବନ୍ଦ ଅଛି, ଏହି ପଟେ ଆସନ୍ତୁ ନାହିଁ"
+                "we need food and water" -> "ଆମକୁ ଖାଦ୍ୟ ଏବଂ ପାଣି ଦରକାର"
+                "all clear" -> "ସବୁ ଠିକ ଅଛି"
+                "thank you" -> "ଧନ୍ୟବାଦ"
+
+                // Conversational & Daily Life / Meals
+                "we had lunch", "we had lunch today", "we had our lunch", "we ate lunch", "we had food", "we ate food" -> "ଆମେ ମଧ୍ୟାହ୍ନ ଭୋଜନ କରିଛୁ"
+                "i had lunch", "i had lunch today", "i had my lunch", "i ate lunch", "i had food" -> "ମୁଁ ମଧ୍ୟାହ୍ନ ଭୋଜନ କରିଛି"
+                "did you have lunch", "did you eat lunch", "have you had lunch", "did you eat", "did you have food" -> "ଆପଣ ମଧ୍ୟାହ୍ନ ଭୋଜନ କଲେଣି କି?"
+                "we had dinner", "we had our dinner", "we ate dinner" -> "ଆମେ ରାତ୍ରୀ ଭୋଜନ କରିଛୁ"
+                "i had dinner", "i had my dinner", "i ate dinner" -> "ମୁଁ ରାତ୍ରୀ ଭୋଜନ କରିଛି"
+                "we had breakfast", "we had our breakfast", "we ate breakfast" -> "ଆମେ ଜଳଖିଆ ଖାଇଛୁ"
+                "i had breakfast", "i had my breakfast", "i ate breakfast" -> "ମୁଁ ଜଳଖିଆ ଖାଇଛି"
+                "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "ଆମେ ଖାଉଛୁ"
+                "food is ready", "the food is ready" -> "ଖାଦ୍ୟ ପ୍ରସ୍ତୁତ ଅଛି"
                 else -> null
             }
 
@@ -1439,7 +1589,15 @@ class OfflineTranslatorEngine {
             "எங்க போறீங்க", "எங்க போற" -> "Where are you going?"
             "என்ன பண்றீங்க", "என்ன பண்ற" -> "What are you doing?"
             "என்ன ஆச்சு", "என்ன பிரச்சனை" -> "What happened?"
-            "சாப்பிட்டீங்களா", "சாப்பிட்டீர்களா" -> "Did you eat?"
+            "சாப்பிட்டீங்களா", "சாப்பிட்டீர்களா", "சாப்பிட்டியா", "மதிய உணவு சாப்பிட்டீர்களா" -> "Did you have lunch?"
+            "நாங்கள் மதிய உணவு சாப்பிட்டோம்", "நாங்க மதிய உணவு சாப்பிட்டோம்", "நாங்கள் சாப்பிட்டோம்", "நாங்க சாப்பிட்டோம்", "நாங்கள் மதிய சாப்பாடு சாப்பிட்டோம்", "நாங்க மதிய சாப்பாடு சாப்பிட்டோம்" -> "We had lunch"
+            "நான் மதிய உணவு சாப்பிட்டேன்", "நான் சாப்பிட்டேன்", "நான் மதிய சாப்பாடு சாப்பிட்டேன்" -> "I had lunch"
+            "நாங்கள் இரவு உணவு சாப்பிட்டோம்", "நாங்க இரவு உணவு சாப்பிட்டோம்" -> "We had dinner"
+            "நான் இரவு உணவு சாப்பிட்டேன்" -> "I had dinner"
+            "நாங்கள் காலை உணவு சாப்பிட்டோம்", "நாங்க காலை உணவு சாப்பிட்டோம்" -> "We had breakfast"
+            "நான் காலை உணவு சாப்பிட்டேன்" -> "I had breakfast"
+            "நாங்கள் சாப்பிடுகிறோம்", "நாங்கள் மதிய உணவு சாப்பிடுகிறோம்" -> "We are having lunch"
+            "உணவு தயாராக உள்ளது", "சாப்பாடு ரெடி" -> "Food is ready"
             "பயப்படாதீங்க", "பயப்படாதீர்கள்" -> "Do not panic, stay calm"
             "கவலைப்படாதீங்க", "கவலைப்படாதீர்கள்" -> "Do not worry"
 
@@ -1550,6 +1708,15 @@ class OfflineTranslatorEngine {
             "हाँ मैं आपको सुन सकता हूँ", "मैं आपको सुन सकता हूँ", "हाँ सुन सकता हूँ" -> "Yes, I can hear you"
             "आप कहाँ हैं", "कहाँ हैं आप" -> "Where are you?"
             "क्या हुआ है", "क्या हुआ" -> "What happened?"
+            "हमने दोपहर का भोजन कर लिया", "हमने दोपहर का खाना खा लिया", "हमने खाना खा लिया", "हमने खाना खाया" -> "We had lunch"
+            "मैंने दोपहर का भोजन कर लिया", "मैंने दोपहर का खाना खा लिया", "मैंने खाना खा लिया" -> "I had lunch"
+            "क्या आपने खाना खाया", "क्या आपने दोपहर का भोजन किया", "खाना खाया क्या" -> "Did you have lunch?"
+            "हमने रात का भोजन कर लिया", "हमने रात का खाना खा लिया" -> "We had dinner"
+            "मैंने रात का भोजन कर लिया" -> "I had dinner"
+            "हमने नाश्ता कर लिया" -> "We had breakfast"
+            "मैंने नाश्ता कर लिया" -> "I had breakfast"
+            "हम खाना खा रहे हैं", "हम दोपहर का भोजन कर रहे हैं" -> "We are having lunch"
+            "खाना तैयार है" -> "Food is ready"
             "आप जहाँ हैं वहीं रहें", "वहीं रहें" -> "Stay where you are"
             "हम मदद के लिए आ रहे हैं", "हम आ रहे हैं" -> "We are coming to help"
             "जल्दी आएं", "तुरंत आएं" -> "Come quickly"
@@ -2389,7 +2556,7 @@ class OfflineTranslatorEngine {
         var auxVerbToken: String? = null
 
         val subjects = setOf("i", "we", "you", "he", "she", "they", "it", "this", "that")
-        val verbs = setOf("need", "want", "see", "hear", "help", "call", "send", "have", "has", "bring", "give", "take", "stop", "wait", "move", "reach", "report")
+        val verbs = setOf("need", "want", "see", "hear", "help", "call", "send", "have", "has", "had", "bring", "give", "take", "stop", "wait", "move", "reach", "report", "eat", "ate", "eating")
         val auxVerbs = setOf("is", "are", "am", "was", "were", "will", "can")
 
         for (w in rawWords) {
@@ -2617,7 +2784,13 @@ class OfflineTranslatorEngine {
             "thank" to "நன்றி",
             "thanks" to "நன்றி",
             "yes" to "ஆம்",
-            "no" to "இல்லை"
+            "no" to "இல்லை",
+            "lunch" to "மதிய உணவு",
+            "dinner" to "இரவு உணவு",
+            "breakfast" to "காலை உணவு",
+            "eat" to "சாப்பிடுங்கள்",
+            "ate" to "சாப்பிட்டோம்",
+            "eating" to "சாப்பிடுகிறோம்"
         )
 
         private val hindiDictionary = mapOf(
@@ -2666,7 +2839,14 @@ class OfflineTranslatorEngine {
             "there" to "वहाँ",
             "please" to "कृपया",
             "immediately" to "तुरंत",
-            "and" to "और"
+            "and" to "और",
+            "had" to "कर लिया",
+            "lunch" to "दोपहर का भोजन",
+            "dinner" to "रात का खाना",
+            "breakfast" to "नाश्ता",
+            "eat" to "खाएं",
+            "ate" to "खाया",
+            "eating" to "खा रहे हैं"
         )
 
         private val teluguDictionary = mapOf(
@@ -2687,7 +2867,14 @@ class OfflineTranslatorEngine {
             "are" to "ఉన్నాయి",
             "please" to "దయచేసి",
             "immediately" to "వెంటనే",
-            "and" to "మరియు"
+            "and" to "మరియు",
+            "had" to "చేశాము",
+            "lunch" to "మధ్యాహ్న భోజనం",
+            "dinner" to "రాత్రి భోజనం",
+            "breakfast" to "అల్పాహారం",
+            "eat" to "తినండి",
+            "ate" to "తిన్నాము",
+            "eating" to "తింటున్నాము"
         )
 
         private val kannadaDictionary = mapOf(
@@ -2703,7 +2890,14 @@ class OfflineTranslatorEngine {
             "safe" to "ಸುರಕ್ಷಿತ",
             "is" to "ಇದೆ",
             "please" to "ದಯವಿಟ್ಟು",
-            "and" to "ಮತ್ತು"
+            "and" to "ಮತ್ತು",
+            "had" to "ಮಾಡಿದ್ದೇವೆ",
+            "lunch" to "ಮಧ್ಯಾಹ್ನದ ಊಟ",
+            "dinner" to "ರಾತ್ರಿಯ ಊಟ",
+            "breakfast" to "ಉಪಾಹಾರ",
+            "eat" to "ತಿನ್ನಿ",
+            "ate" to "ತಿಂದಿದ್ದೇವೆ",
+            "eating" to "ತಿನ್ನುತ್ತಿದ್ದೇವೆ"
         )
 
         private val malayalamDictionary = mapOf(
@@ -2719,7 +2913,14 @@ class OfflineTranslatorEngine {
             "safe" to "സുരക്ഷിതം",
             "is" to "ആണ്",
             "please" to "ദയവായി",
-            "and" to "ഒപ്പം"
+            "and" to "ഒപ്പം",
+            "had" to "കഴിച്ചു",
+            "lunch" to "ഉച്ചഭക്ഷണം",
+            "dinner" to "അത്താഴം",
+            "breakfast" to "പ്രഭാതഭക്ഷണം",
+            "eat" to "കഴിക്കുക",
+            "ate" to "കഴിച്ചു",
+            "eating" to "കഴിക്കുന്നു"
         )
 
         private val tamilToEnglishMap: Map<String, String> by lazy {
@@ -2757,6 +2958,12 @@ class OfflineTranslatorEngine {
                 "உங்களுக்கு" to "you",
                 "அவர்களுக்கு" to "they",
                 "உணவும்" to "food",
+                "சாப்பாடு" to "food",
+                "மதிய உணவு" to "lunch",
+                "சாப்பிட்டோம்" to "had lunch",
+                "சாப்பிட்டேன்" to "had lunch",
+                "சாப்பிட்டீர்களா" to "had lunch",
+                "சாப்பிட்டீங்களா" to "had lunch",
                 "தண்ணீரும்" to "water",
                 "தண்ணீர்" to "water",
                 "தேவைப்படுகிறது" to "need",

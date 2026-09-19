@@ -18,7 +18,7 @@ class OverTheAirPipelineTest {
     @Test
     fun testAllTenIndianLanguagesSupported() {
         val languages = Language.entries
-        assertEquals("Should support 10 languages", 10, languages.size)
+        assertEquals("Should support 11 languages", 11, languages.size)
         
         for (lang in languages) {
             assertNotNull("Language code should not be null", lang.code)

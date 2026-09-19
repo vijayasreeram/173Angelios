@@ -57,14 +57,18 @@ data class SemanticMessage(
             stream.write(vBytes.size)
             stream.write(vBytes)
         }
-        // fromBinaryPayload() reads a trailing [2-byte length][UTF-8 bytes] rawText block;
-        // without writing it here the receiver always got rawText = "" and had to
-        // reconstruct the message from intent+entities alone, garbling free-form sentences.
-        val rawTextBytes = rawText.toByteArray(Charsets.UTF_8)
-        val clampedLen = rawTextBytes.size.coerceAtMost(0xFFFF)
-        stream.write((clampedLen shr 8) and 0xFF)
-        stream.write(clampedLen and 0xFF)
-        stream.write(rawTextBytes, 0, clampedLen)
+        // For free-form and general messages (or when entities don't capture structured telemetry),
+        // include the UTF-8 rawText so that the receiver does not lose the custom sentence.
+        // For structured emergency/tactical intents with entities, keep the bitstream ultra-dense (<80B)
+        // to guarantee transmission over low-bandwidth LoRa/BLE mesh links.
+        val shouldIncludeRawText = (intent == SemanticIntent.GENERAL_REPORT || entities.isEmpty()) && rawText.isNotBlank()
+        if (shouldIncludeRawText) {
+            val rawTextBytes = rawText.toByteArray(Charsets.UTF_8)
+            val clampedLen = rawTextBytes.size.coerceAtMost(0xFFFF)
+            stream.write((clampedLen shr 8) and 0xFF)
+            stream.write(clampedLen and 0xFF)
+            stream.write(rawTextBytes, 0, clampedLen)
+        }
         return stream.toByteArray()
     }
 
