@@ -78,4 +78,93 @@ class CrashInvestigationTest {
         val backFromHindi = engine.translate("हमने दोपहर का भोजन कर लिया", Language.ENGLISH, Language.HINDI)
         org.junit.Assert.assertEquals("We had lunch", backFromHindi)
     }
+
+    @Test
+    fun testUserReportedSentencesInAllLanguages() {
+        val statements = listOf(
+            "ஹரிசுக்கு மூளை குழம்பியது",
+            "ஹரிசுக்கு மூளை குழம்பிடுச்சு",
+            "விஜய் உடைய கால் வெட்டப்பட்டுள்ளது",
+            "விஜய்க்கு கால் வெட்டிக்கிச்சு",
+            "விஜய்க்கு கால் வெட்டப்பட்டது"
+        )
+
+        val targetLanguages = listOf(
+            Language.ENGLISH,
+            Language.TAMIL,
+            Language.HINDI,
+            Language.TELUGU,
+            Language.KANNADA,
+            Language.MALAYALAM,
+            Language.BENGALI,
+            Language.MARATHI,
+            Language.GUJARATI,
+            Language.PUNJABI,
+            Language.ODIA
+        )
+
+        for (stmt in statements) {
+            val isHaris = stmt.contains("ஹரி")
+            val isVijay = stmt.contains("விஜய்")
+
+            // Test 1: Translation to English
+            val en = engine.translate(stmt, Language.ENGLISH, Language.TAMIL)
+            println("[$stmt] -> EN: '$en'")
+            if (isHaris) {
+                org.junit.Assert.assertTrue("Haris sentence to EN must be 'Haris is confused': $en", en.contains("Haris is confused"))
+            } else if (isVijay) {
+                org.junit.Assert.assertTrue("Vijay sentence to EN must contain 'Vijay' and 'cut': $en", en.contains("Vijay") && en.contains("cut"))
+            }
+
+            // Test 2: Cross-translation to all other languages
+            for (tgt in targetLanguages) {
+                val res = engine.translate(stmt, tgt, Language.TAMIL)
+                println("[$stmt] -> ${tgt.name}: '$res'")
+                org.junit.Assert.assertTrue("Result must not be blank for ${tgt.name}", res.isNotBlank())
+                if (tgt != Language.TAMIL) {
+                    org.junit.Assert.assertNotEquals("Should not return unchanged raw text for ${tgt.name}", stmt, res)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testBidirectionalCrossLanguageTraumaTranslations() {
+        val targetLanguages = listOf(
+            Language.TAMIL,
+            Language.HINDI,
+            Language.TELUGU,
+            Language.KANNADA,
+            Language.MALAYALAM,
+            Language.BENGALI,
+            Language.MARATHI,
+            Language.GUJARATI,
+            Language.PUNJABI,
+            Language.ODIA,
+            Language.ENGLISH
+        )
+
+        // 1. English to all 10 Indic languages
+        for (tgt in targetLanguages.filter { it != Language.ENGLISH }) {
+            val harisTgt = engine.translate("Haris is confused", tgt, Language.ENGLISH)
+            println("EN 'Haris is confused' -> ${tgt.name}: $harisTgt")
+            org.junit.Assert.assertTrue("Haris translation to ${tgt.name} should not be blank", harisTgt.isNotBlank())
+
+            val vijayTgt = engine.translate("Vijay's leg is cut", tgt, Language.ENGLISH)
+            println("EN 'Vijay\\'s leg is cut' -> ${tgt.name}: $vijayTgt")
+            org.junit.Assert.assertTrue("Vijay translation to ${tgt.name} should not be blank", vijayTgt.isNotBlank())
+        }
+
+        // 2. Hindi to Tamil, Telugu, Kannada, Malayalam, Bengali, etc.
+        val hindiCut = "विजय का पैर कट गया है"
+        val taFromHi = engine.translate(hindiCut, Language.TAMIL, Language.HINDI)
+        println("HI '$hindiCut' -> TA: '$taFromHi'")
+        org.junit.Assert.assertTrue("Hindi to Tamil should translate leg cut: $taFromHi", taFromHi.contains("கால்") || taFromHi.contains("வெட்ட"))
+
+        val hindiConfused = "हरीश भ्रमित है"
+        val teFromHi = engine.translate(hindiConfused, Language.TELUGU, Language.HINDI)
+        println("HI '$hindiConfused' -> TE: '$teFromHi'")
+        org.junit.Assert.assertTrue("Hindi to Telugu should translate confused: $teFromHi", teFromHi.contains("హరీష్") || teFromHi.contains("గందరగోళం"))
+    }
 }
+

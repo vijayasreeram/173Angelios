@@ -523,6 +523,18 @@ class OfflineTranslatorEngine {
             return colloquialPhrase
         }
 
+        // Tier 1.6: Medical, Trauma & Mental Disorientation Engine (0.02 ms)
+        // Bidirectional, multi-lingual support across all 11 languages (English + 10 Indic languages)
+        var medicalMatch = matchMedicalAndTraumaPatterns(trimmed, targetLanguage, actualSource)
+        if (medicalMatch == null && formalText != trimmed) {
+            medicalMatch = matchMedicalAndTraumaPatterns(formalText, targetLanguage, actualSource)
+        }
+        if (medicalMatch != null) {
+            val colloquialMedical = ColloquialEngine.toColloquial(medicalMatch, targetLanguage, trimmed)
+            translationCache[cacheKey] = colloquialMedical
+            return colloquialMedical
+        }
+
         // Tier 1.7: Syntactic Pattern Matching with Slot Substitution (0.02 ms)
         var patternMatch = matchSentencePatterns(trimmed, targetLanguage, actualSource)
         if (patternMatch == null && formalText != trimmed) {
@@ -532,6 +544,21 @@ class OfflineTranslatorEngine {
             val colloquialPattern = ColloquialEngine.toColloquial(patternMatch, targetLanguage, trimmed)
             translationCache[cacheKey] = colloquialPattern
             return colloquialPattern
+        }
+
+        // Tier 1.8: Indic-to-Indic English Pivot (0.05 ms)
+        // If neither source nor target is English, translate through English pivot so that
+        // phrase and pattern matchers for all languages can be reused seamlessly.
+        if (actualSource != Language.ENGLISH && targetLanguage != Language.ENGLISH && depth == 0) {
+            val enPivot = translate(formalText, Language.ENGLISH, actualSource, depth = depth + 1)
+            if (enPivot.isNotBlank() && enPivot != formalText && enPivot != trimmed && detectScriptLanguage(enPivot) != actualSource) {
+                val tgtResult = translate(enPivot, targetLanguage, Language.ENGLISH, depth = depth + 1)
+                if (tgtResult.isNotBlank() && tgtResult != enPivot && detectScriptLanguage(tgtResult) != Language.ENGLISH) {
+                    val finalRes = ColloquialEngine.toColloquial(tgtResult, targetLanguage, trimmed)
+                    translationCache[cacheKey] = finalRes
+                    return finalRes
+                }
+            }
         }
 
         // Tier 2: Compound Sentence Splitter (Google Translate-style multi-clause handling)
@@ -1050,6 +1077,7 @@ class OfflineTranslatorEngine {
                 Language.MARATHI -> matchMarathiToEnglish(clean)
                 Language.GUJARATI -> matchGujaratiToEnglish(clean)
                 Language.PUNJABI -> matchPunjabiToEnglish(clean)
+                Language.ODIA -> matchOdiaToEnglish(clean)
                 else -> null
             }
         }
@@ -1142,6 +1170,8 @@ class OfflineTranslatorEngine {
                 "battery is low", "battery low" -> "பேட்டரி அளவு குறைவாக உள்ளது"
 
                 // Casualties & Triage
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "ஹரிசுக்கு மூளை குழம்பியது"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "விஜய் உடைய கால் வெட்டப்பட்டுள்ளது"
                 "how many people are injured", "how many casualties" -> "எத்தனை நபர்கள் காயமடைந்துள்ளனர்?"
                 "two people are injured", "two injured" -> "இரண்டு நபர்கள் காயமடைந்துள்ளனர்"
                 "one person is injured", "one injured" -> "ஒரு நபர் காயமடைந்துள்ளார்"
@@ -1216,6 +1246,8 @@ class OfflineTranslatorEngine {
                 "radio check", "testing" -> "रेडियो जांच, संपर्क स्थापित है"
                 "roger that", "copy that", "understood" -> "समझ गया, संदेश प्राप्त हुआ"
                 "thank you", "thanks" -> "धन्यवाद"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "हरीश भ्रमित है"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "विजय का पैर कट गया है"
                 else -> null
             }
 
@@ -1260,6 +1292,8 @@ class OfflineTranslatorEngine {
                 "someone help me", "help", "need help" -> "దయచేసి నాకు సహాయం చేయండి"
                 "all clear", "area is secure" -> "అంతా సురక్షితంగా ఉంది"
                 "thank you" -> "ధన్యవాదాలు"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "హరీష్ గందరగోళంలో ఉన్నాడు"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "విజయ్ కాలు తెగిపోయింది"
                 else -> null
             }
 
@@ -1304,6 +1338,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "ನಮಗೆ ಆಹಾರ ಮತ್ತು ನೀರು ಬೇಕು"
                 "all clear" -> "ಎಲ್ಲವೂ ಕ್ಷೇಮವಾಗಿದೆ"
                 "thank you" -> "ಧನ್ಯವಾದಗಳು"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "ಹರೀಶ್ ಗೊಂದಲಕ್ಕೊಳಗಾಗಿದ್ದಾರೆ"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "ವಿಜಯ್ ಅವರ ಕಾಲು ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ"
                 else -> null
             }
 
@@ -1348,6 +1384,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "ഞങ്ങൾക്ക് ഭക്ഷണവും വെള്ളവും വേണം"
                 "all clear" -> "എല്ലാം ശാന്തമാണ്"
                 "thank you" -> "നന്ദി"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "ഹരീഷിന് ആശയക്കുഴപ്പമുണ്ട്"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "വിജയിന്റെ കാൽ മുറിഞ്ഞു"
                 else -> null
             }
 
@@ -1392,6 +1430,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "আমাদের খাবার ও জল দরকার"
                 "all clear" -> "সব ঠিক আছে"
                 "thank you" -> "ধন্যবাদ"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "হ্যারিস বিভ্রান্ত"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "বিজয়ের পা কেটে গেছে"
                 else -> null
             }
 
@@ -1436,6 +1476,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "आम्हाला अन्न आणि पाणी हवे आहे"
                 "all clear" -> "सर्व ठीक आहे"
                 "thank you" -> "धन्यवाद"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "हरीश गोंधळलेला आहे"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "विजयचा पाय कापला गेला आहे"
                 else -> null
             }
 
@@ -1480,6 +1522,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "અમને ખોરાક અને પાણીની જરૂર છે"
                 "all clear" -> "બધું બરાબર છે"
                 "thank you" -> "આભાર"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "હરીશ મૂંઝવણમાં છે"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "વિજયનો પગ કપાઈ ગયો છે"
                 else -> null
             }
 
@@ -1524,6 +1568,8 @@ class OfflineTranslatorEngine {
                 "we need food and water" -> "ਸਾਨੂੰ ਭੋਜਨ ਅਤੇ ਪਾਣੀ ਦੀ ਲੋੜ ਹੈ"
                 "all clear" -> "ਸਭ ਠੀਕ ਹੈ"
                 "thank you" -> "ਧੰਨਵਾਦ"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "ਹਰੀਸ਼ ਉਲਝਣ ਵਿੱਚ ਹੈ"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "ਵਿਜੇ ਦੀ ਲੱਤ ਕੱਟੀ ਗਈ ਹੈ"
                 else -> null
             }
 
@@ -1541,7 +1587,7 @@ class OfflineTranslatorEngine {
                 "how are you" -> "ଆପଣ କେମିତି ଅଛନ୍ତି?"
                 "i am fine" -> "ମୁଁ ଭଲ ଅଛି"
                 "we are fine" -> "ଆମେ ଭଲ ଅଛୁ"
-                "we need help", "help us", "please help us" -> "ଆମକୁ ସାହାଯ୍ୟ ଦରକାର"
+                "we need help", "help us", "please help us" -> "ଆମକୁ ସାହାଯ୍ୟ ଦରକਾਰ"
                 "route is clear" -> "ରାସ୍ତା ସଫା ଅଛି"
                 "road is blocked" -> "ରାସ୍ତା ବନ୍ଦ ଅଛି"
                 "the road is blocked do not come this way" -> "ରାସ୍ତା ବନ୍ଦ ଅଛି, ଏହି ପଟେ ଆସନ୍ତୁ ନାହିଁ"
@@ -1559,6 +1605,8 @@ class OfflineTranslatorEngine {
                 "i had breakfast", "i had my breakfast", "i ate breakfast" -> "ମୁଁ ଜଳଖିଆ ଖାଇଛି"
                 "we are having lunch", "we are eating lunch", "we are having food", "we are eating" -> "ଆମେ ଖାଉଛୁ"
                 "food is ready", "the food is ready" -> "ଖାଦ୍ୟ ପ୍ରସ୍ତୁତ ଅଛି"
+                "haris is confused", "haris mind is confused", "haris is disoriented" -> "ହରିଶ ବିଭ୍ରାନ୍ତ"
+                "vijay's leg is cut", "vijays leg is cut", "vijay leg is cut", "vijay's leg has been cut", "vijays leg has been cut" -> "ବିଜୟଙ୍କ ଗୋଡ କଟିଯାଇଛି"
                 else -> null
             }
 
@@ -1662,6 +1710,8 @@ class OfflineTranslatorEngine {
             "பேட்டரி அளவு குறைவாக உள்ளது", "பேட்டரி குறைவு" -> "Battery is low"
 
             // Casualties & Triage
+            "ஹரிசுக்கு மூளை குழம்பியது", "ஹரிசுக்கு மூளை குழம்பிடுச்சு", "ஹரிசுக்கு மூளை குழம்பிருச்சு" -> "Haris is confused"
+            "விஜய் உடைய கால் வெட்டப்பட்டுள்ளது", "விஜய்க்கு கால் வெட்டப்பட்டுள்ளது", "விஜய்க்கு கால் வெட்டிக்கிச்சு", "விஜய்க்கு கால் வெட்டப்பட்டது", "விஜய் கால் வெட்டப்பட்டுள்ளது" -> "Vijay's leg is cut"
             "எத்தனை நபர்கள் காயமடைந்துள்ளனர்", "எத்தனை பேர் காயமடைந்துள்ளனர்" -> "How many people are injured?"
             "இரண்டு நபர்கள் காயமடைந்துள்ளனர்", "இரண்டு பேர் காயமடைந்துள்ளனர்" -> "Two people are injured"
             "ஒரு நபர் காயமடைந்துள்ளார்", "ஒருவர் காயமடைந்துள்ளார்" -> "One person is injured"
@@ -1736,6 +1786,8 @@ class OfflineTranslatorEngine {
             "धन्यवाद" -> "Thank you"
             "हाँ" -> "Yes"
             "नहीं" -> "No"
+            "हरीश भ्रमित है", "हरीश का दिमाग चकरा गया है" -> "Haris is confused"
+            "विजय का पैर कट गया है", "विजय का पैर कट चुका है" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1767,6 +1819,8 @@ class OfflineTranslatorEngine {
             "మాకు ఆహారం మరియు నీరు అవసరం" -> "We need food and water"
             "అంతా సురక్షితంగా ఉంది" -> "All clear, area is secure"
             "ధన్యవాదాలు" -> "Thank you"
+            "హరీష్ గందరగోళంలో ఉన్నాడు" -> "Haris is confused"
+            "విజయ్ కాలు తెగిపోయింది" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1797,6 +1851,8 @@ class OfflineTranslatorEngine {
             "ನಮಗೆ ಆಹಾರ ಮತ್ತು ನೀರು ಬೇಕು" -> "We need food and water"
             "ಎಲ್ಲವೂ ಕ್ಷೇಮವಾಗಿದೆ" -> "All clear, area is secure"
             "ಧನ್ಯವಾದಗಳು" -> "Thank you"
+            "ಹರೀಶ್ ಗೊಂದಲಕ್ಕೊಳಗಾಗಿದ್ದಾರೆ" -> "Haris is confused"
+            "ವಿಜಯ್ ಅವರ ಕಾಲು ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1827,6 +1883,8 @@ class OfflineTranslatorEngine {
             "ഞങ്ങൾക്ക് ഭക്ഷണവും വെള്ളവും വേണം" -> "We need food and water"
             "എല്ലാം ശാന്തമാണ്" -> "All clear, area is secure"
             "നന്ദി" -> "Thank you"
+            "ഹരീഷിന് ആശയക്കുഴപ്പമുണ്ട്" -> "Haris is confused"
+            "വിജയിന്റെ കാൽ മുറിഞ്ഞു" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1877,6 +1935,8 @@ class OfflineTranslatorEngine {
             "ধন্যবাদ" -> "Thank you"
             "হ্যাঁ" -> "Yes"
             "না" -> "No"
+            "হ্যারিস বিভ্রান্ত", "হ্যারিসের বিভ্রান্তি হয়েছে", "হ্যারিসের মাথা কাজ করছে না", "হ্যারিসের মাথা বিভ্রান্ত" -> "Haris is confused"
+            "বিজয়ের পা কেটে গেছে", "বিজয়ের পা কাটা পড়েছে", "বিজয়ের পা কাটা হয়েছে" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1926,6 +1986,8 @@ class OfflineTranslatorEngine {
             "धन्यवाद" -> "Thank you"
             "हो" -> "Yes"
             "नाही" -> "No"
+            "हरीश गोंधळलेला आहे", "हरीशचे डोके फिरले आहे", "हरीश गोंधळात आहे" -> "Haris is confused"
+            "विजयचा पाय कापला गेला आहे", "विजयचा पाय कापला आहे", "विजयचा पाय तुटला आहे" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -1975,6 +2037,8 @@ class OfflineTranslatorEngine {
             "આભાર" -> "Thank you"
             "હા" -> "Yes"
             "ના" -> "No"
+            "હરીશ મૂંઝવણમાં છે", "હરીશનું મગજ ચકરાવે ચડ્યું છે", "હરીશ ભ્રમિત છે" -> "Haris is confused"
+            "વિજયનો પગ કપાઈ ગયો છે", "વિજયનો પગ કપાયો છે" -> "Vijay's leg is cut"
             else -> null
         }
     }
@@ -2023,6 +2087,28 @@ class OfflineTranslatorEngine {
             "ਧੰਨਵਾਦ" -> "Thank you"
             "ਹਾਂ" -> "Yes"
             "ਨਹੀਂ" -> "No"
+            "ਹਰੀਸ਼ ਉਲਝਣ ਵਿੱਚ ਹੈ", "ਹਰੀਸ਼ ਦਾ ਸਿਰ ਚਕਰਾ ਰਿਹਾ ਹੈ" -> "Haris is confused"
+            "ਵਿਜੇ ਦੀ ਲੱਤ ਕੱਟੀ ਗਈ ਹੈ", "ਵਿਜੇ ਦੀ ਲੱਤ ਕੱਟ ਗਈ ਹੈ" -> "Vijay's leg is cut"
+            else -> null
+        }
+    }
+
+    private fun matchOdiaToEnglish(clean: String): String? {
+        val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
+        return when (noPunct) {
+            "ହରିଶ ବିଭ୍ରାନ୍ତ", "ହରିଶଙ୍କ ମୁଣ୍ଡ ଘୁରୁଛି", "ହରିଶ ଭ୍ରମିତ ଅଛନ୍ତି" -> "Haris is confused"
+            "ବିଜୟଙ୍କ ଗୋଡ କଟିଯାଇଛି", "ବିଜୟଙ୍କ ଗୋଡ କଟାଯାଇଛି" -> "Vijay's leg is cut"
+            "ନମସ୍କାର" -> "Hello"
+            "ଆପଣ କେମିତି ଅଛନ୍ତି" -> "How are you?"
+            "ମୁଁ ଭଲ ଅଛି" -> "I am fine"
+            "ଆମେ ଭଲ ଅଛୁ" -> "We are fine"
+            "ଆମକୁ ସାହାଯ୍ୟ ଦରକାର" -> "Please help us"
+            "ରାସ୍ତା ସଫା ଅଛି" -> "Route is clear"
+            "ରାସ୍ତା ବନ୍ଦ ଅଛି" -> "The road is blocked"
+            "ଆମକୁ ଖାଦ୍ୟ ଏବଂ ପାଣି ଦରକାର" -> "We need food and water"
+            "ଧନ୍ୟବାଦ" -> "Thank you"
+            "ହଁ" -> "Yes"
+            "ନା" -> "No"
             else -> null
         }
     }
@@ -2486,6 +2572,824 @@ class OfflineTranslatorEngine {
         }
     }
 
+    private enum class PersonKey {
+        HARIS, VIJAY, ROHIT, RAHUL, SURESH, PRIYA, PATIENT, ME, SOMEONE, UNKNOWN
+    }
+
+    private enum class BodyPartKey {
+        LEG, HAND, HEAD, BRAIN, EYE, CHEST, NECK, BONE, BLOOD
+    }
+
+    private enum class TraumaConditionKey {
+        CUT, BROKEN, CONFUSED, DIZZY, UNCONSCIOUS, BLEEDING, INJURED
+    }
+
+    private fun getPersonName(key: PersonKey, targetLang: Language, rawName: String? = null): String {
+        return when (key) {
+            PersonKey.HARIS -> when (targetLang) {
+                Language.TAMIL -> "ஹரிஸ்"
+                Language.HINDI -> "हरीश"
+                Language.TELUGU -> "హరీష్"
+                Language.KANNADA -> "ಹರೀಶ್"
+                Language.MALAYALAM -> "ഹരീഷ്"
+                Language.BENGALI -> "হ্যারিস"
+                Language.MARATHI -> "हरीश"
+                Language.GUJARATI -> "હરીશ"
+                Language.PUNJABI -> "ਹਰੀਸ਼"
+                Language.ODIA -> "ହରିଶ"
+                Language.ENGLISH -> "Haris"
+            }
+            PersonKey.VIJAY -> when (targetLang) {
+                Language.TAMIL -> "விஜய்"
+                Language.HINDI -> "विजय"
+                Language.TELUGU -> "విజయ్"
+                Language.KANNADA -> "ವಿಜಯ್"
+                Language.MALAYALAM -> "വിജയ്"
+                Language.BENGALI -> "বিজয়"
+                Language.MARATHI -> "विजय"
+                Language.GUJARATI -> "વિજય"
+                Language.PUNJABI -> "ਵਿਜੇ"
+                Language.ODIA -> "ବିଜୟ"
+                Language.ENGLISH -> "Vijay"
+            }
+            PersonKey.ROHIT -> when (targetLang) {
+                Language.TAMIL -> "ரோஹித்"
+                Language.HINDI -> "रोहित"
+                Language.TELUGU -> "రోహిత్"
+                Language.KANNADA -> "ರೋಹಿತ್"
+                Language.MALAYALAM -> "രോഹിത്"
+                Language.BENGALI -> "রোহিত"
+                Language.MARATHI -> "रोहित"
+                Language.GUJARATI -> "રોહિત"
+                Language.PUNJABI -> "ਰੋਹਿਤ"
+                Language.ODIA -> "ରୋହିତ"
+                Language.ENGLISH -> "Rohit"
+            }
+            PersonKey.RAHUL -> when (targetLang) {
+                Language.TAMIL -> "ராகுல்"
+                Language.HINDI -> "राहुल"
+                Language.TELUGU -> "రాహుల్"
+                Language.KANNADA -> "ರಾಹುಲ್"
+                Language.MALAYALAM -> "രാഹുൽ"
+                Language.BENGALI -> "রাহুল"
+                Language.MARATHI -> "राहुल"
+                Language.GUJARATI -> "રાહુલ"
+                Language.PUNJABI -> "ਰਾਹੁਲ"
+                Language.ODIA -> "ରାହୁଲ"
+                Language.ENGLISH -> "Rahul"
+            }
+            PersonKey.SURESH -> when (targetLang) {
+                Language.TAMIL -> "சுரேஷ்"
+                Language.HINDI -> "सुरेश"
+                Language.TELUGU -> "సురేష్"
+                Language.KANNADA -> "ಸುರೇಶ್"
+                Language.MALAYALAM -> "സുരേഷ്"
+                Language.BENGALI -> "সুরেশ"
+                Language.MARATHI -> "सुरेश"
+                Language.GUJARATI -> "સુરેશ"
+                Language.PUNJABI -> "ਸੁਰੇਸ਼"
+                Language.ODIA -> "ସୁରେଶ"
+                Language.ENGLISH -> "Suresh"
+            }
+            PersonKey.PRIYA -> when (targetLang) {
+                Language.TAMIL -> "பிரியா"
+                Language.HINDI -> "प्रिया"
+                Language.TELUGU -> "ప్రియ"
+                Language.KANNADA -> "ಪ್ರಿಯಾ"
+                Language.MALAYALAM -> "പ്രിയ"
+                Language.BENGALI -> "প্রিয়া"
+                Language.MARATHI -> "प्रिया"
+                Language.GUJARATI -> "પ્રિયા"
+                Language.PUNJABI -> "ਪ੍ਰਿਯਾ"
+                Language.ODIA -> "ପ୍ରିୟା"
+                Language.ENGLISH -> "Priya"
+            }
+            PersonKey.PATIENT -> when (targetLang) {
+                Language.TAMIL -> "நோயாளி"
+                Language.HINDI -> "मरीज"
+                Language.TELUGU -> "రోగి"
+                Language.KANNADA -> "ರೋಗಿ"
+                Language.MALAYALAM -> "രോഗി"
+                Language.BENGALI -> "রোগী"
+                Language.MARATHI -> "रुग्ण"
+                Language.GUJARATI -> "દર્દી"
+                Language.PUNJABI -> "ਮਰੀਜ਼"
+                Language.ODIA -> "ରୋଗୀ"
+                Language.ENGLISH -> "Patient"
+            }
+            PersonKey.ME -> when (targetLang) {
+                Language.TAMIL -> "எனக்கு"
+                Language.HINDI -> "मुझे"
+                Language.TELUGU -> "నాకు"
+                Language.KANNADA -> "ನನಗೆ"
+                Language.MALAYALAM -> "എനിക്ക്"
+                Language.BENGALI -> "আমার"
+                Language.MARATHI -> "मला"
+                Language.GUJARATI -> "મને"
+                Language.PUNJABI -> "ਮੈਨੂੰ"
+                Language.ODIA -> "ମୋତେ"
+                Language.ENGLISH -> "I"
+            }
+            PersonKey.SOMEONE, PersonKey.UNKNOWN -> rawName?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() } ?: when (targetLang) {
+                Language.TAMIL -> "ஒருவர்"
+                Language.HINDI -> "एक व्यक्ति"
+                Language.TELUGU -> "ఒక వ్యక్తి"
+                Language.KANNADA -> "ಒಬ್ಬ ವ್ಯಕ್ತಿ"
+                Language.MALAYALAM -> "ഒരാൾ"
+                Language.BENGALI -> "একজন ব্যক্তি"
+                Language.MARATHI -> "एक व्यक्ती"
+                Language.GUJARATI -> "એક વ્યક્તિ"
+                Language.PUNJABI -> "ਇੱਕ ਵਿਅਕਤੀ"
+                Language.ODIA -> "ଜଣେ ବ୍ୟକ୍ତି"
+                Language.ENGLISH -> "Someone"
+            }
+        }
+    }
+
+    private fun getBodyPartWord(part: BodyPartKey, lang: Language): String {
+        return when (part) {
+            BodyPartKey.LEG -> when (lang) {
+                Language.TAMIL -> "கால்"
+                Language.HINDI -> "पैर"
+                Language.TELUGU -> "కాలు"
+                Language.KANNADA -> "ಕಾಲು"
+                Language.MALAYALAM -> "കാൽ"
+                Language.BENGALI -> "পা"
+                Language.MARATHI -> "पाय"
+                Language.GUJARATI -> "પગ"
+                Language.PUNJABI -> "ਲੱਤ"
+                Language.ODIA -> "ଗୋଡ"
+                Language.ENGLISH -> "leg"
+            }
+            BodyPartKey.HAND -> when (lang) {
+                Language.TAMIL -> "கை"
+                Language.HINDI -> "हाथ"
+                Language.TELUGU -> "చేయి"
+                Language.KANNADA -> "ಕೈ"
+                Language.MALAYALAM -> "കൈ"
+                Language.BENGALI -> "হাত"
+                Language.MARATHI -> "हात"
+                Language.GUJARATI -> "હાથ"
+                Language.PUNJABI -> "ਹੱਥ"
+                Language.ODIA -> "ହାତ"
+                Language.ENGLISH -> "hand"
+            }
+            BodyPartKey.HEAD -> when (lang) {
+                Language.TAMIL -> "தலை"
+                Language.HINDI -> "सिर"
+                Language.TELUGU -> "తల"
+                Language.KANNADA -> "ತಲೆ"
+                Language.MALAYALAM -> "തല"
+                Language.BENGALI -> "মাথা"
+                Language.MARATHI -> "डोके"
+                Language.GUJARATI -> "માથું"
+                Language.PUNJABI -> "ਸਿਰ"
+                Language.ODIA -> "ମୁଣ୍ଡ"
+                Language.ENGLISH -> "head"
+            }
+            BodyPartKey.BRAIN -> when (lang) {
+                Language.TAMIL -> "மூளை"
+                Language.HINDI -> "दिमाग"
+                Language.TELUGU -> "మెదడు"
+                Language.KANNADA -> "ಮೆದುಳು"
+                Language.MALAYALAM -> "തലച്ചോറ്"
+                Language.BENGALI -> "মস্তিষ্ক"
+                Language.MARATHI -> "मेंदू"
+                Language.GUJARATI -> "મગજ"
+                Language.PUNJABI -> "ਦਿਮਾਗ"
+                Language.ODIA -> "ମସ୍ତିଷ୍କ"
+                Language.ENGLISH -> "brain"
+            }
+            BodyPartKey.EYE -> when (lang) {
+                Language.TAMIL -> "கண்"
+                Language.HINDI -> "आँख"
+                Language.TELUGU -> "కన్ను"
+                Language.KANNADA -> "ಕಣ್ಣು"
+                Language.MALAYALAM -> "കണ്ണ്"
+                Language.BENGALI -> "চোখ"
+                Language.MARATHI -> "डोळा"
+                Language.GUJARATI -> "આંખ"
+                Language.PUNJABI -> "ਅੱਖ"
+                Language.ODIA -> "ଆଖି"
+                Language.ENGLISH -> "eye"
+            }
+            BodyPartKey.CHEST -> when (lang) {
+                Language.TAMIL -> "நெஞ்சு"
+                Language.HINDI -> "छाती"
+                Language.TELUGU -> "ఛాతీ"
+                Language.KANNADA -> "ಎದೆ"
+                Language.MALAYALAM -> "നെഞ്ച്"
+                Language.BENGALI -> "বুক"
+                Language.MARATHI -> "छाती"
+                Language.GUJARATI -> "છાતી"
+                Language.PUNJABI -> "ਛਾਤੀ"
+                Language.ODIA -> "ଛାତି"
+                Language.ENGLISH -> "chest"
+            }
+            BodyPartKey.NECK -> when (lang) {
+                Language.TAMIL -> "கழுத்து"
+                Language.HINDI -> "गर्दन"
+                Language.TELUGU -> "మెడ"
+                Language.KANNADA -> "ಕತ್ತು"
+                Language.MALAYALAM -> "കഴുത്ത്"
+                Language.BENGALI -> "ঘাড়"
+                Language.MARATHI -> "मान"
+                Language.GUJARATI -> "ગરદન"
+                Language.PUNJABI -> "ਗਰਦਨ"
+                Language.ODIA -> "ବେକ"
+                Language.ENGLISH -> "neck"
+            }
+            BodyPartKey.BONE -> when (lang) {
+                Language.TAMIL -> "எலும்பு"
+                Language.HINDI -> "हड्डी"
+                Language.TELUGU -> "ఎముక"
+                Language.KANNADA -> "ಮೂಳೆ"
+                Language.MALAYALAM -> "എല്ല്"
+                Language.BENGALI -> "হাড়"
+                Language.MARATHI -> "हाड"
+                Language.GUJARATI -> "હાડકું"
+                Language.PUNJABI -> "ਹੱਡੀ"
+                Language.ODIA -> "ହାଡ଼"
+                Language.ENGLISH -> "bone"
+            }
+            BodyPartKey.BLOOD -> when (lang) {
+                Language.TAMIL -> "ரத்தம்"
+                Language.HINDI -> "खून"
+                Language.TELUGU -> "రక్తం"
+                Language.KANNADA -> "ರಕ್ತ"
+                Language.MALAYALAM -> "രക്തം"
+                Language.BENGALI -> "রক্ত"
+                Language.MARATHI -> "रक्त"
+                Language.GUJARATI -> "લોહી"
+                Language.PUNJABI -> "ਖੂਨ"
+                Language.ODIA -> "ରକ୍ତ"
+                Language.ENGLISH -> "blood"
+            }
+        }
+    }
+
+    private fun isMedicalStopWord(word: String): Boolean {
+        val w = word.lowercase(Locale.ROOT)
+        return w in listOf(
+            "the", "a", "an", "is", "are", "was", "were", "what", "where", "how", "who", "why",
+            "he", "she", "it", "they", "this", "that", "these", "those",
+            "கால்", "கை", "தலை", "மூளை", "பாதை", "சாலை", "பாலம்", "உணவு", "தண்ணீர்",
+            "पैर", "हाथ", "सिर", "दिमाग", "रास्ता", "सड़क", "पुल"
+        )
+    }
+
+    private fun renderTraumaSentence(
+        person: PersonKey?,
+        rawPerson: String?,
+        bodyPart: BodyPartKey?,
+        condition: TraumaConditionKey,
+        targetLang: Language
+    ): String {
+        val pName = person?.let { getPersonName(it, targetLang, rawPerson) }
+        val partName = bodyPart?.let { getBodyPartWord(it, targetLang) }
+
+        return when (targetLang) {
+            Language.ENGLISH -> {
+                if (pName != null) {
+                    if (person == PersonKey.ME) {
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "My $partName is cut"
+                                TraumaConditionKey.BROKEN -> "My $partName is broken"
+                                TraumaConditionKey.BLEEDING -> "My $partName is bleeding"
+                                TraumaConditionKey.INJURED -> "My $partName is injured"
+                                TraumaConditionKey.CONFUSED -> "I am confused"
+                                TraumaConditionKey.DIZZY -> "I am feeling dizzy"
+                                TraumaConditionKey.UNCONSCIOUS -> "I am unconscious"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "I am wounded"
+                                TraumaConditionKey.BROKEN -> "I have a fracture"
+                                TraumaConditionKey.CONFUSED -> "I am confused"
+                                TraumaConditionKey.DIZZY -> "I am feeling dizzy"
+                                TraumaConditionKey.UNCONSCIOUS -> "I am unconscious"
+                                TraumaConditionKey.BLEEDING -> "I am bleeding"
+                                TraumaConditionKey.INJURED -> "I am injured"
+                            }
+                        }
+                    } else {
+                        val possessive = if (pName.endsWith("s", ignoreCase = true)) "$pName'" else "$pName's"
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$possessive $partName is cut"
+                                TraumaConditionKey.BROKEN -> "$possessive $partName is broken"
+                                TraumaConditionKey.BLEEDING -> "$possessive $partName is bleeding"
+                                TraumaConditionKey.INJURED -> "$possessive $partName is injured"
+                                TraumaConditionKey.CONFUSED -> "$pName is confused"
+                                TraumaConditionKey.DIZZY -> "$pName is feeling dizzy"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName is unconscious"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$pName is wounded"
+                                TraumaConditionKey.BROKEN -> "$pName has a fracture"
+                                TraumaConditionKey.CONFUSED -> "$pName is confused"
+                                TraumaConditionKey.DIZZY -> "$pName is feeling dizzy"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName is unconscious"
+                                TraumaConditionKey.BLEEDING -> "$pName is bleeding"
+                                TraumaConditionKey.INJURED -> "$pName is injured"
+                            }
+                        }
+                    }
+                } else {
+                    val p = partName ?: "person"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "The $p is cut"
+                        TraumaConditionKey.BROKEN -> "The $p is broken"
+                        TraumaConditionKey.BLEEDING -> "There is bleeding in the $p"
+                        TraumaConditionKey.INJURED -> "The $p is injured"
+                        TraumaConditionKey.CONFUSED -> "The patient is confused"
+                        TraumaConditionKey.DIZZY -> "Feeling dizzy"
+                        TraumaConditionKey.UNCONSCIOUS -> "The patient is unconscious"
+                    }
+                }
+            }
+            Language.TAMIL -> {
+                if (pName != null) {
+                    if (person == PersonKey.ME) {
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "என் $partName வெட்டப்பட்டுள்ளது"
+                                TraumaConditionKey.BROKEN -> "என் $partName உடைந்துள்ளது"
+                                TraumaConditionKey.BLEEDING -> "என் $partName-ல் ரத்தம் வழிகிறது"
+                                TraumaConditionKey.INJURED -> "என் $partName காயமடைந்துள்ளது"
+                                TraumaConditionKey.CONFUSED -> "எனக்கு மூளை குழம்பியது"
+                                TraumaConditionKey.DIZZY -> "எனக்கு தலை சுற்றுகிறது"
+                                TraumaConditionKey.UNCONSCIOUS -> "நான் மயக்கமடைந்துள்ளேன்"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "எனக்கு வெட்டு காயம் ஏற்பட்டுள்ளது"
+                                TraumaConditionKey.BROKEN -> "எனக்கு எலும்பு முறிவு ஏற்பட்டுள்ளது"
+                                TraumaConditionKey.CONFUSED -> "எனக்கு மூளை குழம்பியது"
+                                TraumaConditionKey.DIZZY -> "எனக்கு தலை சுற்றுகிறது"
+                                TraumaConditionKey.UNCONSCIOUS -> "நான் மயக்கமடைந்துள்ளேன்"
+                                TraumaConditionKey.BLEEDING -> "எனக்கு ரத்தம் வழிகிறது"
+                                TraumaConditionKey.INJURED -> "நான் காயமடைந்துள்ளேன்"
+                            }
+                        }
+                    } else {
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$pName உடைய $partName வெட்டப்பட்டுள்ளது"
+                                TraumaConditionKey.BROKEN -> "$pName உடைய $partName உடைந்துள்ளது"
+                                TraumaConditionKey.BLEEDING -> "$pName-க்கு $partName-ல் ரத்தம் வழிகிறது"
+                                TraumaConditionKey.INJURED -> "$pName உடைய $partName காயமடைந்துள்ளது"
+                                TraumaConditionKey.CONFUSED -> "$pName-க்கு மூளை குழம்பியது"
+                                TraumaConditionKey.DIZZY -> "$pName-க்கு தலை சுற்றுகிறது"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName மயக்கமடைந்துள்ளார்"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$pName-க்கு வெட்டு காயம் ஏற்பட்டுள்ளது"
+                                TraumaConditionKey.BROKEN -> "$pName-க்கு எலும்பு முறிவு ஏற்பட்டுள்ளது"
+                                TraumaConditionKey.CONFUSED -> "$pName-க்கு மூளை குழம்பியது"
+                                TraumaConditionKey.DIZZY -> "$pName-க்கு தலை சுற்றுகிறது"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName மயக்கமடைந்துள்ளார்"
+                                TraumaConditionKey.BLEEDING -> "$pName-க்கு ரத்தம் வழிகிறது"
+                                TraumaConditionKey.INJURED -> "$pName காயமடைந்துள்ளார்"
+                            }
+                        }
+                    }
+                } else {
+                    val p = partName ?: "உறுப்பு"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p வெட்டப்பட்டுள்ளது"
+                        TraumaConditionKey.BROKEN -> "$p உடைந்துள்ளது"
+                        TraumaConditionKey.BLEEDING -> "$p-ல் ரத்தம் வழிகிறது"
+                        TraumaConditionKey.INJURED -> "$p காயமடைந்துள்ளது"
+                        TraumaConditionKey.CONFUSED -> "மூளை குழம்பியுள்ளது"
+                        TraumaConditionKey.DIZZY -> "தலை சுற்றுகிறது"
+                        TraumaConditionKey.UNCONSCIOUS -> "மயக்கமடைந்துள்ளார்"
+                    }
+                }
+            }
+            Language.HINDI -> {
+                if (pName != null) {
+                    if (person == PersonKey.ME) {
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "मेरा $partName कट गया है"
+                                TraumaConditionKey.BROKEN -> "मेरा $partName टूट गया है"
+                                TraumaConditionKey.BLEEDING -> "मेरे $partName से खून बह रहा है"
+                                TraumaConditionKey.INJURED -> "मेरा $partName घायल है"
+                                TraumaConditionKey.CONFUSED -> "मैं भ्रमित हूँ"
+                                TraumaConditionKey.DIZZY -> "मुझे चक्कर आ रहा है"
+                                TraumaConditionKey.UNCONSCIOUS -> "मैं बेहोश हूँ"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "मुझे चोट लगी है"
+                                TraumaConditionKey.BROKEN -> "मेरी हड्डी टूट गई है"
+                                TraumaConditionKey.CONFUSED -> "मैं भ्रमित हूँ"
+                                TraumaConditionKey.DIZZY -> "मुझे चक्कर आ रहा है"
+                                TraumaConditionKey.UNCONSCIOUS -> "मैं बेहोश हूँ"
+                                TraumaConditionKey.BLEEDING -> "मेरा खून बह रहा है"
+                                TraumaConditionKey.INJURED -> "मैं घायल हूँ"
+                            }
+                        }
+                    } else {
+                        if (partName != null) {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$pName का $partName कट गया है"
+                                TraumaConditionKey.BROKEN -> "$pName का $partName टूट गया है"
+                                TraumaConditionKey.BLEEDING -> "$pName के $partName से खून बह रहा है"
+                                TraumaConditionKey.INJURED -> "$pName का $partName घायल है"
+                                TraumaConditionKey.CONFUSED -> "$pName भ्रमित है"
+                                TraumaConditionKey.DIZZY -> "$pName को चक्कर आ रहा है"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName बेहोश है"
+                            }
+                        } else {
+                            when (condition) {
+                                TraumaConditionKey.CUT -> "$pName को चोट लगी है"
+                                TraumaConditionKey.BROKEN -> "$pName की हड्डी टूट गई है"
+                                TraumaConditionKey.CONFUSED -> "$pName भ्रमित है"
+                                TraumaConditionKey.DIZZY -> "$pName को चक्कर आ रहा है"
+                                TraumaConditionKey.UNCONSCIOUS -> "$pName बेहोश है"
+                                TraumaConditionKey.BLEEDING -> "$pName का खून बह रहा है"
+                                TraumaConditionKey.INJURED -> "$pName घायल है"
+                            }
+                        }
+                    }
+                } else {
+                    val p = partName ?: "अंग"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p कट गया है"
+                        TraumaConditionKey.BROKEN -> "$p टूट गया है"
+                        TraumaConditionKey.BLEEDING -> "$p से खून बह रहा है"
+                        TraumaConditionKey.INJURED -> "$p घायल है"
+                        TraumaConditionKey.CONFUSED -> "मरीज भ्रमित है"
+                        TraumaConditionKey.DIZZY -> "चक्कर आ रहा है"
+                        TraumaConditionKey.UNCONSCIOUS -> "मरीज बेहोश है"
+                    }
+                }
+            }
+            Language.TELUGU -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName యొక్క $partName తెగిపోయింది"
+                            TraumaConditionKey.BROKEN -> "$pName యొక్క $partName విరిగిపోయింది"
+                            TraumaConditionKey.BLEEDING -> "$pName యొక్క $partName నుండి రక్తం కారుతోంది"
+                            TraumaConditionKey.INJURED -> "$pName యొక్క $partName గాయపడింది"
+                            TraumaConditionKey.CONFUSED -> "$pName గందరగోళంలో ఉన్నాడు"
+                            TraumaConditionKey.DIZZY -> "$pName కు తల తిరుగుతోంది"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName స్పృహ తప్పిపోయాడు"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName కు గాయమైంది"
+                            TraumaConditionKey.BROKEN -> "$pName ఎముక విరిగింది"
+                            TraumaConditionKey.CONFUSED -> "$pName గందరగోళంలో ఉన్నాడు"
+                            TraumaConditionKey.DIZZY -> "$pName కు తల తిరుగుతోంది"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName స్పృహ తప్పిపోయాడు"
+                            TraumaConditionKey.BLEEDING -> "$pName కు రక్తం కారుతోంది"
+                            TraumaConditionKey.INJURED -> "$pName గాయపడ్డాడు"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "అంగం"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p తెగిపోయింది"
+                        TraumaConditionKey.BROKEN -> "$p విరిగిపోయింది"
+                        TraumaConditionKey.BLEEDING -> "$p నుండి రక్తం కారుతోంది"
+                        TraumaConditionKey.INJURED -> "$p గాయపడింది"
+                        TraumaConditionKey.CONFUSED -> "గందరగోళంగా ఉంది"
+                        TraumaConditionKey.DIZZY -> "తల తిరుగుతోంది"
+                        TraumaConditionKey.UNCONSCIOUS -> "స్పృహ తప్పిపోయారు"
+                    }
+                }
+            }
+            Language.KANNADA -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ಅವರ $partName ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ"
+                            TraumaConditionKey.BROKEN -> "$pName ಅವರ $partName ಮುರಿದಿದೆ"
+                            TraumaConditionKey.BLEEDING -> "$pName ಅವರ $partName-ನಿಂದ ರಕ್ತ ಸುರಿಯುತ್ತಿದೆ"
+                            TraumaConditionKey.INJURED -> "$pName ಅವರ $partName ಗಾಯಗೊಂಡಿದೆ"
+                            TraumaConditionKey.CONFUSED -> "$pName ಗೊಂದಲಕ್ಕೊಳಗಾಗಿದ್ದಾರೆ"
+                            TraumaConditionKey.DIZZY -> "$pName ಅವರಿಗೆ ತಲೆ ತಿರುಗುತ್ತಿದೆ"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ಪ್ರಜ್ಞಾಹೀನರಾಗಿದ್ದಾರೆ"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ಅವರಿಗೆ ಗಾಯವಾಗಿದೆ"
+                            TraumaConditionKey.BROKEN -> "$pName ಅವರ ಮೂಳೆ ಮುರಿದಿದೆ"
+                            TraumaConditionKey.CONFUSED -> "$pName ಗೊಂದಲಕ್ಕೊಳಗಾಗಿದ್ದಾರೆ"
+                            TraumaConditionKey.DIZZY -> "$pName ಅವರಿಗೆ ತಲೆ ತಿರುಗುತ್ತಿದೆ"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ಪ್ರಜ್ಞಾಹೀನರಾಗಿದ್ದಾರೆ"
+                            TraumaConditionKey.BLEEDING -> "$pName ಅವರಿಗೆ ರಕ್ತ ಸುರಿಯುತ್ತಿದೆ"
+                            TraumaConditionKey.INJURED -> "$pName ಗಾಯಗೊಂಡಿದ್ದಾರೆ"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "ಅಂಗ"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ"
+                        TraumaConditionKey.BROKEN -> "$p ಮುರಿದಿದೆ"
+                        TraumaConditionKey.BLEEDING -> "$p-ನಿಂದ ರಕ್ತ ಸುರಿಯುತ್ತಿದೆ"
+                        TraumaConditionKey.INJURED -> "$p ಗಾಯಗೊಂಡಿದೆ"
+                        TraumaConditionKey.CONFUSED -> "ಗೊಂದಲದಲ್ಲಿದ್ದಾರೆ"
+                        TraumaConditionKey.DIZZY -> "ತಲೆ ತಿರುಗುತ್ತಿದೆ"
+                        TraumaConditionKey.UNCONSCIOUS -> "ಪ್ರಜ್ಞಾಹೀನರಾಗಿದ್ದಾರೆ"
+                    }
+                }
+            }
+            Language.MALAYALAM -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName-ന്റെ $partName മുറിഞ്ഞു"
+                            TraumaConditionKey.BROKEN -> "$pName-ന്റെ $partName ഒടിഞ്ഞു"
+                            TraumaConditionKey.BLEEDING -> "$pName-ന്റെ $partName-ൽ നിന്ന് രക്തം ഒഴുകുന്നു"
+                            TraumaConditionKey.INJURED -> "$pName-ന്റെ $partName-ന് പരിക്കേറ്റു"
+                            TraumaConditionKey.CONFUSED -> "$pName-ന് ആശയക്കുഴപ്പമുണ്ട്"
+                            TraumaConditionKey.DIZZY -> "$pName-ന് തലകറങ്ങുന്നു"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName അബോധാവസ്ഥയിലാണ്"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName-ന് മുറിവേറ്റു"
+                            TraumaConditionKey.BROKEN -> "$pName-ന്റെ എല്ല് ഒടിഞ്ഞു"
+                            TraumaConditionKey.CONFUSED -> "$pName-ന് ആശയക്കുഴപ്പമുണ്ട്"
+                            TraumaConditionKey.DIZZY -> "$pName-ന് തലകറങ്ങുന്നു"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName അബോധാവസ്ഥയിലാണ്"
+                            TraumaConditionKey.BLEEDING -> "$pName-ൽ നിന്ന് രക്തം ഒഴുകുന്നു"
+                            TraumaConditionKey.INJURED -> "$pName-ന് പരിക്കേറ്റു"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "ഭാഗം"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p മുറിഞ്ഞു"
+                        TraumaConditionKey.BROKEN -> "$p ഒടിഞ്ഞു"
+                        TraumaConditionKey.BLEEDING -> "$p-ൽ നിന്ന് രക്തം ഒഴുകുന്നു"
+                        TraumaConditionKey.INJURED -> "$p-ന് പരിക്കേറ്റു"
+                        TraumaConditionKey.CONFUSED -> "ആശയക്കുഴപ്പത്തിലാണ്"
+                        TraumaConditionKey.DIZZY -> "തലകറങ്ങുന്നു"
+                        TraumaConditionKey.UNCONSCIOUS -> "അബോധാവസ്ഥയിലാണ്"
+                    }
+                }
+            }
+            Language.BENGALI -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName-এর $partName কেটে গেছে"
+                            TraumaConditionKey.BROKEN -> "$pName-এর $partName ভেঙে গেছে"
+                            TraumaConditionKey.BLEEDING -> "$pName-এর $partName থেকে রক্তপাত হচ্ছে"
+                            TraumaConditionKey.INJURED -> "$pName-এর $partName আহত হয়েছে"
+                            TraumaConditionKey.CONFUSED -> "$pName বিভ্রান্ত"
+                            TraumaConditionKey.DIZZY -> "$pName-এর মাথা ঘুরছে"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName অজ্ঞান হয়ে গেছেন"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName আহত হয়েছেন"
+                            TraumaConditionKey.BROKEN -> "$pName-এর হাড় ভেঙে গেছে"
+                            TraumaConditionKey.CONFUSED -> "$pName বিভ্রান্ত"
+                            TraumaConditionKey.DIZZY -> "$pName-এর মাথা ঘুরছে"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName অজ্ঞান হয়ে গেছেন"
+                            TraumaConditionKey.BLEEDING -> "$pName-এর রক্তপাত হচ্ছে"
+                            TraumaConditionKey.INJURED -> "$pName আহত হয়েছেন"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "অঙ্গ"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p কেটে গেছে"
+                        TraumaConditionKey.BROKEN -> "$p ভেঙে গেছে"
+                        TraumaConditionKey.BLEEDING -> "$p থেকে রক্তপাত হচ্ছে"
+                        TraumaConditionKey.INJURED -> "$p আহত হয়েছে"
+                        TraumaConditionKey.CONFUSED -> "বিভ্রান্তি হয়েছে"
+                        TraumaConditionKey.DIZZY -> "মাথা ঘুরছে"
+                        TraumaConditionKey.UNCONSCIOUS -> "অজ্ঞান হয়ে গেছেন"
+                    }
+                }
+            }
+            Language.MARATHI -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName चा $partName कापला गेला आहे"
+                            TraumaConditionKey.BROKEN -> "$pName चा $partName मोडला आहे"
+                            TraumaConditionKey.BLEEDING -> "$pName च्या $partName मधून रक्त येत आहे"
+                            TraumaConditionKey.INJURED -> "$pName चा $partName जखमी झाला आहे"
+                            TraumaConditionKey.CONFUSED -> "$pName गोंधळलेला आहे"
+                            TraumaConditionKey.DIZZY -> "$pName ला चक्कर येत आहे"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName बेशुद्ध आहे"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName जखमी झाला आहे"
+                            TraumaConditionKey.BROKEN -> "$pName चे हाड मोडले आहे"
+                            TraumaConditionKey.CONFUSED -> "$pName गोंधळलेला आहे"
+                            TraumaConditionKey.DIZZY -> "$pName ला चक्कर येत आहे"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName बेशुद्ध आहे"
+                            TraumaConditionKey.BLEEDING -> "$pName चे रक्त येत आहे"
+                            TraumaConditionKey.INJURED -> "$pName जखमी आहे"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "अवयव"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p कापला गेला आहे"
+                        TraumaConditionKey.BROKEN -> "$p मोडला आहे"
+                        TraumaConditionKey.BLEEDING -> "$p मधून रक्त येत आहे"
+                        TraumaConditionKey.INJURED -> "$p जखमी झाला आहे"
+                        TraumaConditionKey.CONFUSED -> "गोंधळलेला आहे"
+                        TraumaConditionKey.DIZZY -> "चक्कर येत आहे"
+                        TraumaConditionKey.UNCONSCIOUS -> "बेशुद्ध आहे"
+                    }
+                }
+            }
+            Language.GUJARATI -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName નો $partName કપાઈ ગયો છે"
+                            TraumaConditionKey.BROKEN -> "$pName નો $partName તૂટી ગયો છે"
+                            TraumaConditionKey.BLEEDING -> "$pName ના $partName માંથી લોહી વહી રહ્યું છે"
+                            TraumaConditionKey.INJURED -> "$pName નો $partName ઇજાગ્રસ્ત છે"
+                            TraumaConditionKey.CONFUSED -> "$pName મૂંઝવણમાં છે"
+                            TraumaConditionKey.DIZZY -> "$pName ને ચક્કર આવે છે"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName બેભાન છે"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ઇજાગ્રસ્ત છે"
+                            TraumaConditionKey.BROKEN -> "$pName નું હાડકું તૂટી ગયું છે"
+                            TraumaConditionKey.CONFUSED -> "$pName મૂંઝવણમાં છે"
+                            TraumaConditionKey.DIZZY -> "$pName ને ચક્કર આવે છે"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName બેભાન છે"
+                            TraumaConditionKey.BLEEDING -> "$pName નું લોહી વહી રહ્યું છે"
+                            TraumaConditionKey.INJURED -> "$pName ઘાયલ છે"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "અંગ"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p કપાઈ ગયો છે"
+                        TraumaConditionKey.BROKEN -> "$p તૂટી ગયો છે"
+                        TraumaConditionKey.BLEEDING -> "$p માંથી લોહી વહી રહ્યું છે"
+                        TraumaConditionKey.INJURED -> "$p ઇજાગ્રસ્ત છે"
+                        TraumaConditionKey.CONFUSED -> "મૂંઝવણમાં છે"
+                        TraumaConditionKey.DIZZY -> "ચક્કર આવે છે"
+                        TraumaConditionKey.UNCONSCIOUS -> "બેભાન છે"
+                    }
+                }
+            }
+            Language.PUNJABI -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ਦੀ $partName ਕੱਟੀ ਗਈ ਹੈ"
+                            TraumaConditionKey.BROKEN -> "$pName ਦੀ $partName ਟੁੱਟ ਗਈ ਹੈ"
+                            TraumaConditionKey.BLEEDING -> "$pName ਦੀ $partName ਵਿੱਚੋਂ ਖੂਨ ਵਹਿ ਰਿਹਾ ਹੈ"
+                            TraumaConditionKey.INJURED -> "$pName ਦੀ $partName ਜ਼ਖਮੀ ਹੈ"
+                            TraumaConditionKey.CONFUSED -> "$pName ਉਲਝਣ ਵਿੱਚ ਹੈ"
+                            TraumaConditionKey.DIZZY -> "$pName ਨੂੰ ਚੱਕਰ ਆ ਰਹੇ ਹਨ"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ਬੇਹੋਸ਼ ਹੈ"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ਜ਼ਖਮੀ ਹੈ"
+                            TraumaConditionKey.BROKEN -> "$pName ਦੀ ਹੱਡੀ ਟੁੱਟ ਗਈ ਹੈ"
+                            TraumaConditionKey.CONFUSED -> "$pName ਉਲਝਣ ਵਿੱਚ ਹੈ"
+                            TraumaConditionKey.DIZZY -> "$pName ਨੂੰ ਚੱਕਰ ਆ ਰਹੇ ਹਨ"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ਬੇਹੋਸ਼ ਹੈ"
+                            TraumaConditionKey.BLEEDING -> "$pName ਦਾ ਖੂਨ ਵਹਿ ਰਿਹਾ ਹੈ"
+                            TraumaConditionKey.INJURED -> "$pName ਜ਼ਖਮੀ ਹੈ"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "ਅੰਗ"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p ਕੱਟੀ ਗਈ ਹੈ"
+                        TraumaConditionKey.BROKEN -> "$p ਟੁੱਟ ਗਈ ਹੈ"
+                        TraumaConditionKey.BLEEDING -> "$p ਵਿੱਚੋਂ ਖੂਨ ਵਹਿ ਰਿਹਾ ਹੈ"
+                        TraumaConditionKey.INJURED -> "$p ਜ਼ਖਮੀ ਹੈ"
+                        TraumaConditionKey.CONFUSED -> "ਉਲਝਣ ਵਿੱਚ ਹੈ"
+                        TraumaConditionKey.DIZZY -> "ਚੱਕਰ ਆ ਰਹੇ ਹਨ"
+                        TraumaConditionKey.UNCONSCIOUS -> "ਬੇਹੋਸ਼ ਹੈ"
+                    }
+                }
+            }
+            Language.ODIA -> {
+                if (pName != null) {
+                    if (partName != null) {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ଙ୍କ $partName କଟିଯାଇଛି"
+                            TraumaConditionKey.BROKEN -> "$pName ଙ୍କ $partName ଭାଙ୍ଗିଯାଇଛି"
+                            TraumaConditionKey.BLEEDING -> "$pName ଙ୍କ $partName ରୁ ରକ୍ତ ବାହାରୁଛି"
+                            TraumaConditionKey.INJURED -> "$pName ଙ୍କ $partName ଆହତ ହୋଇଛି"
+                            TraumaConditionKey.CONFUSED -> "$pName ବିଭ୍ରାନ୍ତ"
+                            TraumaConditionKey.DIZZY -> "$pName ଙ୍କ ମୁଣ୍ଡ ଘୁରୁଛି"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ଅଚେତ ହୋଇପଡ଼ିଛନ୍ତି"
+                        }
+                    } else {
+                        when (condition) {
+                            TraumaConditionKey.CUT -> "$pName ଆହତ ହୋଇଛନ୍ତି"
+                            TraumaConditionKey.BROKEN -> "$pName ଙ୍କ ହାଡ଼ ଭାଙ୍ଗିଯାଇଛି"
+                            TraumaConditionKey.CONFUSED -> "$pName ବିଭ୍ରାନ୍ତ"
+                            TraumaConditionKey.DIZZY -> "$pName ଙ୍କ ମୁଣ୍ଡ ଘୁରୁଛି"
+                            TraumaConditionKey.UNCONSCIOUS -> "$pName ଅଚେତ ହୋଇପଡ଼ିଛନ୍ତି"
+                            TraumaConditionKey.BLEEDING -> "$pName ଙ୍କ ରକ୍ତସ୍ରାବ ହେଉଛି"
+                            TraumaConditionKey.INJURED -> "$pName ଆହତ ହୋଇଛନ୍ତି"
+                        }
+                    }
+                } else {
+                    val p = partName ?: "ଅଙ୍ଗ"
+                    when (condition) {
+                        TraumaConditionKey.CUT -> "$p କଟିଯାଇଛି"
+                        TraumaConditionKey.BROKEN -> "$p ଭାଙ୍ଗିଯାଇଛି"
+                        TraumaConditionKey.BLEEDING -> "$p ରୁ ରକ୍ତ ବାହାରୁଛି"
+                        TraumaConditionKey.INJURED -> "$p ଆହତ ହୋଇଛି"
+                        TraumaConditionKey.CONFUSED -> "ବିଭ୍ରାନ୍ତ ଅଛନ୍ତି"
+                        TraumaConditionKey.DIZZY -> "ମୁଣ୍ଡ ଘୁରୁଛି"
+                        TraumaConditionKey.UNCONSCIOUS -> "ଅଚେତ ହୋଇପଡ଼ିଛନ୍ତି"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun matchMedicalAndTraumaPatterns(
+        text: String,
+        targetLang: Language,
+        sourceLang: Language = Language.ENGLISH
+    ): String? {
+        val clean = text.replace(Regex("""[.,!?;:\"'()\[\]{}—–\-_/\\|।॥]"""), " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+        val lowerClean = clean.lowercase(Locale.ROOT)
+        if (clean.isBlank()) return null
+
+        // 1. Detect Condition
+        var detectedCondition: TraumaConditionKey? = null
+        when {
+            cutPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.CUT
+            brokenPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.BROKEN
+            confusedPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.CONFUSED
+            dizzyPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.DIZZY
+            unconsciousPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.UNCONSCIOUS
+            bleedingPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.BLEEDING
+            injuredPatterns.any { lowerClean.contains(it) } -> detectedCondition = TraumaConditionKey.INJURED
+        }
+        if (detectedCondition == null) return null
+
+        // 2. Detect Body Part
+        var detectedBodyPart: BodyPartKey? = null
+        when {
+            legPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.LEG
+            handPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.HAND
+            brainPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.BRAIN
+            headPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.HEAD
+            eyePatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.EYE
+            chestPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.CHEST
+            neckPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.NECK
+            bonePatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.BONE
+            bloodPatterns.any { lowerClean.contains(it) } -> detectedBodyPart = BodyPartKey.BLOOD
+        }
+
+        // 3. Detect Person / Subject
+        var detectedPerson: PersonKey? = null
+        var rawPersonName: String? = null
+
+        when {
+            harisPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.HARIS
+            vijayPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.VIJAY
+            rohitPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.ROHIT
+            rahulPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.RAHUL
+            sureshPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.SURESH
+            priyaPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.PRIYA
+            patientPatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.PATIENT
+            mePatterns.any { lowerClean.contains(it) } -> detectedPerson = PersonKey.ME
+            else -> {
+                val words = clean.split(Regex("""\s+"""))
+                val firstWord = words.firstOrNull()?.trim()
+                if (firstWord != null && firstWord.length >= 3 && !isMedicalStopWord(firstWord)) {
+                    val baseName = firstWord.replace(Regex("""(?:'s| உடைய|க்கு|ற்கு| கா| की| के| యొక్క| వారి| ಅವರ|ന്റെ|ന്|এর|কে|चा|ची|नो|ની|ਦੀ|ਦਾ|ଙ୍କ|ଙ୍କୁ)$"""), "")
+                    if (baseName.isNotBlank() && baseName.length >= 2 && !isMedicalStopWord(baseName)) {
+                        detectedPerson = PersonKey.UNKNOWN
+                        rawPersonName = baseName
+                    }
+                }
+            }
+        }
+
+        if (detectedPerson == null && detectedBodyPart == null) return null
+
+        return renderTraumaSentence(detectedPerson, rawPersonName, detectedBodyPart, detectedCondition, targetLang)
+    }
+
     private fun translateWordsWithGrammar(
         sentence: String,
         targetLang: Language,
@@ -2604,6 +3508,290 @@ class OfflineTranslatorEngine {
     }
 
     companion object {
+        private val cutPatterns = listOf(
+            "cut", "severed",
+            "வெட்டப்பட்டுள்ளது", "வெட்டப்பட்டது", "வெட்டிக்கிச்சு", "வெட்டிக்கிருச்சு", "வெட்டிருச்சு", "வெட்டிடுச்சு", "வெட்டியுள்ளது", "வெட்டு",
+            "कट गया", "कट चुका", "कटा हुआ", "काट दिया",
+            "తెగిపోయింది", "కత్తిరించబడింది", "కోయబడింది",
+            "ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ", "ಕತ್ತರಿಸಲಾಗಿದೆ", "ಕಟ್ ಆಗಿದೆ",
+            "മുറിഞ്ഞു", "മുറിഞ്ഞിരിക്കുന്നു", "മുറിച്ചുമാറ്റപ്പെട്ടു",
+            "কেটে গেছে", "কাটা পড়েছে", "কাটা হয়েছে",
+            "कापला गेला आहे", "कापला आहे", "कापला",
+            "કપાઈ ગયો છે", "કપાયો છે",
+            "ਕੱਟੀ ਗਈ ਹੈ", "ਕੱਟ ਗਈ ਹੈ", "ਕੱਟਿਆ ਗਿਆ ਹੈ",
+            "କଟିଯାଇଛି", "କଟାଯାଇଛି"
+        )
+
+        private val brokenPatterns = listOf(
+            "broken", "fractured", "fracture",
+            "உடைந்துள்ளது", "உடைந்தது", "உடைஞ்சிடுச்சு", "உடைஞ்சிருச்சு", "முறிந்துள்ளது", "எலும்பு முறிவு",
+            "टूट गया", "फ्रैक्चर", "टूटा हुआ",
+            "విరిగిపోయింది", "ఫ్రాక్చర్",
+            "ಮುರಿದಿದೆ", "ಮುರಿತವಾಗಿದೆ",
+            "ഒടിഞ്ഞു", "ഒടിഞ്ഞിരിക്കുന്നു",
+            "ভেঙে গেছে", "ভেঙে পড়েছে",
+            "मोडला आहे", "तुटला आहे",
+            "તૂટી ગયો છે", "ભાંગી ગયો છે",
+            "ਟੁੱਟ ਗਈ ਹੈ", "ਟੁੱਟ ਗਿਆ ਹੈ",
+            "ଭାଙ୍ଗିଯାଇଛି", "ଭାଙ୍ଗି ପଡ଼ିଛି"
+        )
+
+        private val confusedPatterns = listOf(
+            "confused", "disoriented", "confusion",
+            "குழம்பியது", "குழம்பிவிட்டது", "குழம்பிடுச்சு", "குழம்பிருச்சு", "குழப்பம்", "குழப்பமாக",
+            "भ्रमित", "चकरा गया", "असमंजस", "सिर चकरा",
+            "గందరగోళంలో", "అయోమయంలో", "గందరగోళం",
+            "ಗೊಂದಲಕ್ಕೊಳಗಾಗಿದ್ದಾರೆ", "ಗೊಂದಲದಲ್ಲಿದ್ದಾರೆ", "ಗೊಂದಲ",
+            "ആശയക്കുഴപ്പത്തിലാണ്", "ആശയക്കുഴപ്പമുണ്ട്", "പരിഭ്രാന്തനാണ്",
+            "বিভ্রান্ত", "বিভ্রান্তি",
+            "गोंधळलेला", "संभ्रमात", "गोंधळात",
+            "મૂંઝવણમાં", "અસમંજસમાં",
+            "ਉਲਝਣ ਵਿੱਚ", "ਭੰਬਲਭੂਸੇ",
+            "ବିଭ୍ରାନ୍ତ", "ଦ୍ୱନ୍ଦ୍ୱରେ", "ଭ୍ରମିତ"
+        )
+
+        private val dizzyPatterns = listOf(
+            "dizzy", "dizziness", "spinning",
+            "சுற்றுகிறது", "சுத்துது", "சுற்றல்",
+            "चक्कर", "घूम रहा",
+            "తిరుగుతోంది",
+            "ತಿರುಗುತ್ತಿದೆ",
+            "തലകറങ്ങുന്നു", "തലകറക്കം",
+            "মাথা ঘুরছে",
+            "चक्कर येत", "गरगरत",
+            "ચક્કર આવે", "ભમે છે",
+            "ਚੱਕਰ ਆ ਰਹੇ",
+            "ମୁଣ୍ଡ ଘୁରୁଛି"
+        )
+
+        private val unconsciousPatterns = listOf(
+            "unconscious", "fainted", "collapsed",
+            "மயக்கமடைந்துள்ளார்", "மயங்கிவிட்டார்", "மயக்கம்", "மயங்கி விழுந்தார்", "மயக்கமடைந்துள்ளேன்",
+            "बेहोश",
+            "స్పృహ తప్పిపోయాడు", "మూర్ఛపోయాడు", "స్పృహ",
+            "ಪ್ರಜ್ಞಾಹೀನರಾಗಿದ್ದಾರೆ", "ಮೂರ್ಛೆ",
+            "അബോധാവസ്ഥയിലാണ്", "ബോധംകെട്ടു",
+            "অজ্ঞান", "অচেতন",
+            "बेशुद्ध",
+            "બેભાન", "બેહોશ",
+            "ਬੇਹੋਸ਼", "ਬੇਸੁਰਤ",
+            "ଅଚେତ"
+        )
+
+        private val bleedingPatterns = listOf(
+            "bleeding", "bleeds",
+            "ரத்தம் வழிகிறது", "ரத்தம் கொட்டுது", "குருதிப்போக்கு",
+            "खून बह रहा", "रक्त बह रहा",
+            "రక్తం కారుతోంది",
+            "ರಕ್ತ ಸುರಿಯುತ್ತಿದೆ",
+            "രക്തം ഒഴുകുന്നു",
+            "রক্তপাত হচ্ছে", "রক্ত ঝরছে",
+            "रक्त येत आहे", "रक्तस्त्राव",
+            "લોહી વહી રહ્યું છે",
+            "ਖੂਨ ਵਹਿ ਰਿਹਾ ਹੈ",
+            "ରକ୍ତ ବାହାରୁଛି", "ରକ୍ତସ୍ରାବ"
+        )
+
+        private val injuredPatterns = listOf(
+            "injured", "hurt", "wounded",
+            "காயமடைந்துள்ளார்", "காயமடைந்துள்ளது", "காயம்", "அடிபட்டுள்ளது", "அடிபட்டிருக்கு",
+            "घायल", "चोट लगी",
+            "గాయపడ్డాడు", "గాయపడింది", "దెబ్బ తగిలింది",
+            "ಗಾಯಗೊಂಡಿದ್ದಾರೆ", "ಗಾಯಗೊಂಡಿದೆ", "ಪೆಟ್ಟಾಗಿದೆ",
+            "പരിക്കേറ്റു", "പരിക്കേറ്റിരിക്കുന്നു",
+            "আহত", "চোট পেয়েছেন",
+            "जखमी", "दुखापत",
+            "ઇજાગ્રસ્ત", "ઘાયલ",
+            "ਜ਼ਖਮੀ", "ਸੱਟ ਲੱਗੀ",
+            "ଆହତ", "ଆଘାତ"
+        )
+
+        private val legPatterns = listOf(
+            "leg", "legs", "foot", "feet",
+            "கால்", "கால்கள்", "பாதம்",
+            "पैर", "पाँव", "टांग",
+            "కాలు", "కాళ్ళు",
+            "ಕಾಲು", "ಕಾಲುಗಳು",
+            "കാൽ", "കാലുകൾ",
+            "পা", "পাগুলো",
+            "पाय",
+            "પગ",
+            "ਲੱਤ", "ਲੱਤਾਂ", "ਪੈਰ",
+            "ଗୋଡ", "ଗୋଡ଼"
+        )
+
+        private val handPatterns = listOf(
+            "hand", "hands", "arm", "arms", "finger",
+            "கை", "கைகள்", "விரல்",
+            "हाथ", "बाजू", "उंगली",
+            "చేయి", "చేతులు",
+            "ಕೈ", "ಕೈಗಳು",
+            "കൈ", "കൈകൾ",
+            "হাত", "হাতগুলো",
+            "हात",
+            "હાથ",
+            "ਹੱਥ", "ਬਾਂਹ",
+            "ହାତ"
+        )
+
+        private val brainPatterns = listOf(
+            "brain", "mind",
+            "மூளை", "மனம்",
+            "दिमाग", "मन",
+            "మెదడు", "మనస్సు",
+            "ಮೆದುಳು", "ಮನಸ್ಸು",
+            "തലച്ചോറ്", "മനസ്സ്",
+            "মস্তিষ্ক", "মন",
+            "मेंदू", "मन",
+            "મગજ", "મન",
+            "ਦਿਮਾਗ", "ਮਨ",
+            "ମସ୍ତିଷ୍କ", "ମନ"
+        )
+
+        private val headPatterns = listOf(
+            "head",
+            "தலை",
+            "सिर",
+            "తల",
+            "ತಲೆ",
+            "തല",
+            "মাথা",
+            "डोके",
+            "માથું",
+            "ਸਿਰ",
+            "ମୁଣ୍ଡ"
+        )
+
+        private val eyePatterns = listOf(
+            "eye", "eyes",
+            "கண்", "கண்கள்",
+            "आँख", "आँखें",
+            "కన్ను", "కళ్ళు",
+            "ಕಣ್ಣು", "ಕಣ್ಣುಗಳು",
+            "കണ്ണ്", "കണ്ണുകൾ",
+            "চোখ",
+            "डोळा", "डोळे",
+            "આંખ", "આંખો",
+            "ਅੱਖ", "ਅੱਖਾਂ",
+            "ଆଖି"
+        )
+
+        private val chestPatterns = listOf(
+            "chest", "heart",
+            "நெஞ்சு", "மார்பு", "இதயம்",
+            "छाती", "सीना", "दिल",
+            "ఛాతీ", "గుండె",
+            "ಎದೆ", "ಹೃದಯ",
+            "നെഞ്ച്", "ഹൃദയം",
+            "বুক", "হৃদয়",
+            "छाती", "हृदय",
+            "છાતી", "હૃદય",
+            "ਛਾਤੀ", "ਦਿਲ",
+            "ଛାତି", "ହୃଦୟ"
+        )
+
+        private val neckPatterns = listOf(
+            "neck", "throat",
+            "கழுத்து", "தொண்டை",
+            "गर्दन", "गला",
+            "మెడ", "గొంతు",
+            "ಕತ್ತು", "ಗಂಟಲು",
+            "കഴുത്ത്", "തൊണ്ട",
+            "ঘাড়", "গলা",
+            "मान", "घसा",
+            "ગરદન", "ગળું",
+            "ਗਰਦਨ", "ਗਲਾ",
+            "ବେକ", "ଗଳା"
+        )
+
+        private val bonePatterns = listOf(
+            "bone", "bones",
+            "எலும்பு",
+            "हड्डी",
+            "ఎముక",
+            "ಮೂಳೆ",
+            "എല്ല്",
+            "হাড়",
+            "हाड",
+            "હાડકું",
+            "ਹੱਡੀ",
+            "ହାଡ଼", "ହାଡ"
+        )
+
+        private val bloodPatterns = listOf(
+            "blood", "bleeding",
+            "ரத்தம்", "குருதி",
+            "खून", "रक्त",
+            "రక్తం",
+            "ರಕ್ತ",
+            "രക്തം",
+            "রক্ত",
+            "रक्त",
+            "લોહી",
+            "ਖੂਨ", "ਲਹੂ",
+            "ରକ୍ତ"
+        )
+
+        private val harisPatterns = listOf(
+            "haris", "harris",
+            "ஹரிசுக்கு", "ஹரிஸ்க்கு", "ஹரிஸ்", "ஹாரிஸ்",
+            "हरीश", "हैरिस", "हारिस",
+            "హరీష్",
+            "ಹರೀಶ್",
+            "ഹരീഷ്", "ഹരീഷിന്",
+            "হ্যারিস",
+            "હરીશ",
+            "ਹਰੀਸ਼",
+            "ହରିଶ"
+        )
+
+        private val vijayPatterns = listOf(
+            "vijay",
+            "விஜய்", "விஜய்க்கு", "விஜயின்",
+            "विजय",
+            "విజయ్",
+            "ವಿಜಯ್",
+            "വിജയ്", "വിജയിന്റെ", "വിജയ്ക്ക്",
+            "বিজয়", "বিজয়ের",
+            "વિજય",
+            "ਵਿਜੇ",
+            "ବିଜୟ"
+        )
+
+        private val rohitPatterns = listOf(
+            "rohit", "ரோஹித்", "ரோஹித்துக்கு", "रोहित", "రోహిత్", "ರೋಹಿತ್", "രോഹിത്", "রোহিত", "રોહિત", "ਰੋਹਿਤ", "ରୋହିତ"
+        )
+
+        private val rahulPatterns = listOf(
+            "rahul", "ராகுல்", "ராகுலுக்கு", "राहुल", "రాహుల్", "ರಾಹುಲ್", "രാഹുൽ", "রাহুল", "રાહુલ", "ਰਾਹੁਲ", "ରାହୁଲ"
+        )
+
+        private val sureshPatterns = listOf(
+            "suresh", "சுரேஷ்", "சுரேஷுக்கு", "सुरेश", "సురేష్", "ಸುರೇಶ್", "സുരേഷ്", "সুরেশ", "સુરેશ", "ਸੁਰੇਸ਼", "ସୁରେଶ"
+        )
+
+        private val priyaPatterns = listOf(
+            "priya", "பிரியா", "பிரியாவுக்கு", "प्रिया", "ప్రియ", "ಪ್ರಿಯಾ", "പ്രിയ", "প্রিয়া", "પ્રિયા", "ਪ੍ਰਿਯਾ", "ପ୍ରିୟା"
+        )
+
+        private val patientPatterns = listOf(
+            "patient", "நோயாளி", "நோயாளிக்கு", "मरीज", "రోగి", "ರೋಗಿ", "രോഗി", "রোগী", "रुग्ण", "દર્દી", "ਮਰੀਜ਼", "ରୋଗୀ"
+        )
+
+        private val mePatterns = listOf(
+            "my", "me", "i am", "i'm",
+            "எனக்கு", "என்", "என்னை", "என்னுடைய", "நான்",
+            "मेरा", "मेरी", "मेरे", "मुझे", "मैं",
+            "నా", "నాకు", "నేను",
+            "ನನ್ನ", "ನನಗೆ", "ನಾನು",
+            "എന്റെ", "എനിക്ക്", "ഞാൻ",
+            "আমার", "আমাকে", "আমি",
+            "माझा", "माझी", "मला", "मी",
+            "મારો", "મારી", "મને", "હું",
+            "ਮੇਰੀ", "ਮੇਰਾ", "ਮੈਨੂੰ", "ਮੈਂ",
+            "ମୋର", "ମୋତେ", "ମୁଁ"
+        )
+
         private val tamilDictionary = mapOf(
             "i" to "நான்",
             "me" to "என்னை",
@@ -2790,7 +3978,26 @@ class OfflineTranslatorEngine {
             "breakfast" to "காலை உணவு",
             "eat" to "சாப்பிடுங்கள்",
             "ate" to "சாப்பிட்டோம்",
-            "eating" to "சாப்பிடுகிறோம்"
+            "eating" to "சாப்பிடுகிறோம்",
+            "leg" to "கால்",
+            "legs" to "கால்கள்",
+            "hand" to "கை",
+            "hands" to "கைகள்",
+            "head" to "தலை",
+            "brain" to "மூளை",
+            "mind" to "மனம்",
+            "eye" to "கண்",
+            "eyes" to "கண்கள்",
+            "chest" to "நெஞ்சு",
+            "neck" to "கழுத்து",
+            "bone" to "எலும்பு",
+            "blood" to "ரத்தம்",
+            "cut" to "வெட்டப்பட்டுள்ளது",
+            "broken" to "உடைந்துள்ளது",
+            "confused" to "குழப்பமடைந்துள்ளது",
+            "dizzy" to "தலை சுற்றல்",
+            "unconscious" to "மயக்கமடைந்துள்ளார்",
+            "injured" to "காயமடைந்துள்ளார்"
         )
 
         private val hindiDictionary = mapOf(
@@ -2846,7 +4053,26 @@ class OfflineTranslatorEngine {
             "breakfast" to "नाश्ता",
             "eat" to "खाएं",
             "ate" to "खाया",
-            "eating" to "खा रहे हैं"
+            "eating" to "खा रहे हैं",
+            "leg" to "पैर",
+            "legs" to "पैर",
+            "hand" to "हाथ",
+            "hands" to "हाथ",
+            "head" to "सिर",
+            "brain" to "दिमाग",
+            "mind" to "मन",
+            "eye" to "आँख",
+            "eyes" to "आँखें",
+            "chest" to "छाती",
+            "neck" to "गर्दन",
+            "bone" to "हड्डी",
+            "blood" to "खून",
+            "cut" to "कटा हुआ",
+            "broken" to "टूटा हुआ",
+            "confused" to "भ्रमित",
+            "dizzy" to "चक्कर",
+            "unconscious" to "बेहोश",
+            "injured" to "घायल"
         )
 
         private val teluguDictionary = mapOf(
@@ -2874,7 +4100,17 @@ class OfflineTranslatorEngine {
             "breakfast" to "అల్పాహారం",
             "eat" to "తినండి",
             "ate" to "తిన్నాము",
-            "eating" to "తింటున్నాము"
+            "eating" to "తింటున్నాము",
+            "leg" to "కాలు",
+            "legs" to "కాళ్ళు",
+            "hand" to "చేయి",
+            "hands" to "చేతులు",
+            "head" to "తల",
+            "brain" to "మెదడు",
+            "cut" to "తెగిపోయింది",
+            "broken" to "విరిగిపోయింది",
+            "confused" to "గందరగోళంలో",
+            "injured" to "గాయపడ్డాడు"
         )
 
         private val kannadaDictionary = mapOf(
@@ -2897,7 +4133,17 @@ class OfflineTranslatorEngine {
             "breakfast" to "ಉಪಾಹಾರ",
             "eat" to "ತಿನ್ನಿ",
             "ate" to "ತಿಂದಿದ್ದೇವೆ",
-            "eating" to "ತಿನ್ನುತ್ತಿದ್ದೇವೆ"
+            "eating" to "ತಿನ್ನುತ್ತಿದ್ದೇವೆ",
+            "leg" to "ಕಾಲು",
+            "legs" to "ಕಾಲುಗಳು",
+            "hand" to "ಕೈ",
+            "hands" to "ಕೈಗಳು",
+            "head" to "ತಲೆ",
+            "brain" to "ಮೆದುಳು",
+            "cut" to "ಕತ್ತರಿಸಲ್ಪಟ್ಟಿದೆ",
+            "broken" to "ಮುರಿದಿದೆ",
+            "confused" to "ಗೊಂದಲದಲ್ಲಿದ್ದಾರೆ",
+            "injured" to "ಗಾಯಗೊಂಡಿದ್ದಾರೆ"
         )
 
         private val malayalamDictionary = mapOf(
@@ -2920,7 +4166,17 @@ class OfflineTranslatorEngine {
             "breakfast" to "പ്രഭാതഭക്ഷണം",
             "eat" to "കഴിക്കുക",
             "ate" to "കഴിച്ചു",
-            "eating" to "കഴിക്കുന്നു"
+            "eating" to "കഴിക്കുന്നു",
+            "leg" to "കാൽ",
+            "legs" to "കാലുകൾ",
+            "hand" to "കൈ",
+            "hands" to "കൈകൾ",
+            "head" to "തല",
+            "brain" to "തലച്ചോറ്",
+            "cut" to "മുറിഞ്ഞു",
+            "broken" to "ഒടിഞ്ഞു",
+            "confused" to "ആശയക്കുഴപ്പത്തിലാണ്",
+            "injured" to "പരിക്കേറ്റു"
         )
 
         private val tamilToEnglishMap: Map<String, String> by lazy {
@@ -2972,6 +4228,14 @@ class OfflineTranslatorEngine {
                 "வேண்டாம்" to "do not",
                 "உதவி" to "help",
                 "உதவுங்கள்" to "help",
+                "கால்" to "leg",
+                "கை" to "hand",
+                "மூளை" to "brain",
+                "தலை" to "head",
+                "வெட்டப்பட்டுள்ளது" to "is cut",
+                "வெட்டிக்கிச்சு" to "is cut",
+                "குழம்பியது" to "is confused",
+                "குழம்பிடுச்சு" to "is confused",
                 "வருகிறோம்" to "coming",
                 "வாருங்கள்" to "come",
                 "செல்கிறோம்" to "going",
