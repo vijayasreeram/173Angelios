@@ -96,6 +96,12 @@ class MeshRouter(
             _deliveredPackets.tryEmit(packet)
         }
 
+        // Discovery beacons are link-local: re-broadcasting them only floods the channel with duplicates.
+        if (packet.packetType == org.sih.itantra.domain.model.PacketType.HELLO ||
+            packet.packetType == org.sih.itantra.domain.model.PacketType.HEARTBEAT) {
+            return if (isForMe) RouteAction.ACCEPTED_LOCAL else RouteAction.DROPPED_TTL_EXPIRED
+        }
+
         // 3. Multi-Hop Forwarding if broadcast or for another node and TTL > 1
         if (packet.ttl > 1) {
             val forwardedPacket = packet.copy(ttl = (packet.ttl - 1).toByte())

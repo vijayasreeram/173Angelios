@@ -158,6 +158,7 @@ class LocalEncryptedDatabase(private val context: Context) {
         _messagesFlow.value = inMemoryMessages.toList()
     }
 
+    @Synchronized
     fun updateMessageStatus(id: String, status: DeliveryStatus) {
         val index = inMemoryMessages.indexOfFirst { it.id == id }
         if (index != -1) {
@@ -167,6 +168,7 @@ class LocalEncryptedDatabase(private val context: Context) {
         }
     }
 
+    @Synchronized
     fun addOrUpdateNode(node: NetworkNode) {
         val myNodeId = getOrCreateNodeId().trim()
         val incomingId = node.id.trim()
@@ -183,7 +185,8 @@ class LocalEncryptedDatabase(private val context: Context) {
         _nodesFlow.value = inMemoryNodes.toList()
     }
 
-    fun pruneStaleNodes(maxAgeMs: Long = 4500L) {
+    @Synchronized
+    fun pruneStaleNodes(maxAgeMs: Long = 12_000L) {
         val now = System.currentTimeMillis()
         val changed = inMemoryNodes.removeAll { (now - it.lastSeenTimestamp) > maxAgeMs }
         if (changed) {

@@ -51,31 +51,21 @@ class WifiDirectTransport(
     override suspend fun start() {
         try {
             // 1. Acquire Multicast Lock to allow receipt of broadcast/multicast UDP packets on Android
-            multicastLock = wifiManager?.createMulticastLock("itantra_p2p_multicast")?.apply {
-                setReferenceCounted(true)
-                acquire()
-            }
-
-            // 2. Open UDP Datagram Socket on MESH_PORT
-            if (serverSocket == null || serverSocket?.isClosed == true) {
-                serverSocket = DatagramSocket(null).apply {
-                    reuseAddress = true
-                    broadcast = true
-                    bind(InetSocketAddress(MESH_PORT))
-                }
-            }
-
-            // 3. Open TCP Server Socket on MESH_PORT for 100% reliable direct mesh fallback
-            if (tcpServerSocket == null || tcpServerSocket?.isClosed == true) {
-                try {
-                    tcpServerSocket = ServerSocket().apply {
-                        reuseAddress = true
-                        bind(InetSocketAddress(MESH_PORT))
+            try {
+                if (multicastLock?.isHeld != true) {
+                    multicastLock = wifiManager?.createMulticastLock("itantra_p2p_multicast")?.apply {
+                        setReferenceCounted(false)
+                        acquire()
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not bind TCP ServerSocket on $MESH_PORT: ${e.message}")
                 }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Could not acquire multicast lock: ${t.message}")
             }
+
+            // 2 & 3. Open UDP + TCP sockets independently: a failure of one must never leave the
+            // device unable to receive on the other (previously any bind error aborted start()).
+            ensureUdpSocket()
+            ensureTcpSocket()
 
             // 4. Launch background UDP receiver coroutine
             listeningJob?.cancel()
@@ -83,8 +73,15 @@ class WifiDirectTransport(
                 val buffer = ByteArray(4096)
                 while (isActive) {
                     try {
+                        val sock = serverSocket
+                        if (sock == null || sock.isClosed) {
+                            // Socket lost (e.g. Wi-Fi reconnect): retry instead of busy-spinning
+                            delay(1000L)
+                            ensureUdpSocket()
+                            continue
+                        }
                         val datagram = DatagramPacket(buffer, buffer.size)
-                        serverSocket?.receive(datagram)
+                        sock.receive(datagram)
 
                         val peerIp = datagram.address?.hostAddress
                         if (!peerIp.isNullOrBlank() && peerIp != "127.0.0.1") {
@@ -108,9 +105,12 @@ class WifiDirectTransport(
                                 Log.d(TAG, "Ignored loopback of self-transmitted packet ${incomingPacket.messageId}")
                             }
                         }
-                    } catch (e: Exception) {
-                        if (isActive && e !is SocketException) {
-                            Log.w(TAG, "Error in UDP receive loop", e)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        if (isActive) {
+                            Log.w(TAG, "Error in UDP receive loop: ${e.message}")
+                            delay(200L)
                         }
                     }
                 }
@@ -121,7 +121,13 @@ class WifiDirectTransport(
             tcpListeningJob = scope.launch {
                 while (isActive) {
                     try {
-                        val client = tcpServerSocket?.accept() ?: continue
+                        val server = tcpServerSocket
+                        if (server == null || server.isClosed) {
+                            delay(1000L)
+                            ensureTcpSocket()
+                            continue
+                        }
+                        val client = server.accept()
                         scope.launch(Dispatchers.IO) {
                             try {
                                 val peerIp = client.inetAddress?.hostAddress
@@ -157,9 +163,12 @@ class WifiDirectTransport(
                                 try { client.close() } catch (_: Exception) {}
                             }
                         }
-                    } catch (e: Exception) {
-                        if (isActive && e !is SocketException) {
-                            Log.w(TAG, "Error in TCP accept loop", e)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        if (isActive) {
+                            Log.w(TAG, "Error in TCP accept loop: ${e.message}")
+                            delay(200L)
                         }
                     }
                 }
@@ -168,6 +177,62 @@ class WifiDirectTransport(
             Log.i(TAG, "Wi-Fi Direct / Local Mesh Transport started on port $MESH_PORT (UDP & TCP)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start Wi-Fi Direct sockets", e)
+        }
+    }
+
+    private fun ensureUdpSocket() {
+        try {
+            if (serverSocket == null || serverSocket?.isClosed == true) {
+                serverSocket = DatagramSocket(null).apply {
+                    reuseAddress = true
+                    broadcast = true
+                    bind(InetSocketAddress(MESH_PORT))
+                }
+                Log.i(TAG, "UDP socket bound on port $MESH_PORT")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not bind UDP socket on $MESH_PORT: ${t.message}")
+        }
+    }
+
+    private fun ensureTcpSocket() {
+        try {
+            if (tcpServerSocket == null || tcpServerSocket?.isClosed == true) {
+                tcpServerSocket = ServerSocket().apply {
+                    reuseAddress = true
+                    bind(InetSocketAddress(MESH_PORT))
+                }
+                Log.i(TAG, "TCP socket bound on port $MESH_PORT")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not bind TCP ServerSocket on $MESH_PORT: ${t.message}")
+        }
+    }
+
+    /**
+     * The Wi-Fi network the phone is joined to. When that Wi-Fi has no internet (typical for a
+     * hotspot / field router) Android routes an unbound socket over mobile data instead, so LAN
+     * broadcasts and peer connections never reach the other phone. Binding to the Wi-Fi network fixes that.
+     */
+    @Suppress("DEPRECATION")
+    private fun wifiNetwork(): android.net.Network? = try {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        cm?.allNetworks?.firstOrNull { n ->
+            cm.getNetworkCapabilities(n)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true
+        }
+    } catch (_: Throwable) {
+        null
+    }
+
+    private fun bindToWifi(socket: DatagramSocket) {
+        try { wifiNetwork()?.bindSocket(socket) } catch (t: Throwable) {
+            Log.v(TAG, "UDP bindSocket to Wi-Fi skipped: ${t.message}")
+        }
+    }
+
+    private fun bindToWifi(socket: Socket) {
+        try { wifiNetwork()?.bindSocket(socket) } catch (t: Throwable) {
+            Log.v(TAG, "TCP bindSocket to Wi-Fi skipped: ${t.message}")
         }
     }
 
@@ -349,6 +414,7 @@ class WifiDirectTransport(
             val socket = DatagramSocket().apply {
                 broadcast = true
             }
+            bindToWifi(socket)
 
             val targetAddresses = getDynamicTargetAddresses(destinationAddress)
 
@@ -374,6 +440,7 @@ class WifiDirectTransport(
                 scope.launch(Dispatchers.IO) {
                     try {
                         Socket().use { tcp ->
+                            bindToWifi(tcp)
                             tcp.connect(InetSocketAddress(targetIp, MESH_PORT), 400)
                             val out = tcp.getOutputStream()
                             out.write(wireBytes)

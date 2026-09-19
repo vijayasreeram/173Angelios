@@ -523,6 +523,24 @@ class OfflineTranslatorEngine {
             return colloquialPhrase
         }
 
+        // Tier 1.55: Base Station neural model (IndicTrans2 on GPU) - outranks every fuzzy/heuristic tier.
+        // Exact curated phrases above still win (authoritative tactical wording), but for anything
+        // free-form - slang, colloquial speech, long sentences - the real neural translation is far
+        // more accurate than templates, the compound splitter, ML Kit or word-by-word rules.
+        var edgeAttempted = false
+        if (isEdgeServerActive && edgeServerHost != null && depth == 0) {
+            edgeAttempted = true
+            var edgeFirst = queryEdgeServer(trimmed, actualSource, targetLanguage)
+            if (!isPlausibleTranslation(edgeFirst, trimmed, targetLanguage) && formalText != trimmed) {
+                edgeFirst = queryEdgeServer(formalText, actualSource, targetLanguage)
+            }
+            if (isPlausibleTranslation(edgeFirst, trimmed, targetLanguage)) {
+                val colloquialEdge = ColloquialEngine.toColloquial(edgeFirst!!.trim(), targetLanguage, trimmed)
+                translationCache[cacheKey] = colloquialEdge
+                return colloquialEdge
+            }
+        }
+
         // Tier 1.6: Medical, Trauma & Mental Disorientation Engine (0.02 ms)
         // Bidirectional, multi-lingual support across all 11 languages (English + 10 Indic languages)
         var medicalMatch = matchMedicalAndTraumaPatterns(trimmed, targetLanguage, actualSource)
@@ -577,7 +595,7 @@ class OfflineTranslatorEngine {
         }
 
         // Tier 4: Ultra-Fast Edge Server Query (Only if local pack did not match and base station is active)
-        if (isEdgeServerActive && edgeServerHost != null) {
+        if (!edgeAttempted && isEdgeServerActive && edgeServerHost != null) {
             var edgeTranslation = queryEdgeServer(trimmed, actualSource, targetLanguage)
             if (edgeTranslation.isNullOrBlank() && formalText != trimmed) {
                 edgeTranslation = queryEdgeServer(formalText, actualSource, targetLanguage)
@@ -609,6 +627,17 @@ class OfflineTranslatorEngine {
         val colloquialGrammar = ColloquialEngine.toColloquial(grammarResult, targetLanguage, trimmed)
         translationCache[cacheKey] = colloquialGrammar
         return colloquialGrammar
+    }
+
+    /**
+     * Guards against a neural/server response that is not a usable translation: blank, an
+     * untranslated echo of the input, or text in the wrong script for the requested target.
+     */
+    private fun isPlausibleTranslation(result: String?, input: String, target: Language): Boolean {
+        val r = result?.trim().orEmpty()
+        if (r.isBlank() || r.equals(input.trim(), ignoreCase = true)) return false
+        val script = detectScriptLanguage(r)
+        return if (target == Language.ENGLISH) script == null else script == target
     }
 
     fun detectScriptLanguage(text: String): Language? {

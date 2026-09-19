@@ -54,10 +54,21 @@ class TransportManager(
     fun getActiveTransport(): TransportType = activeTransportType
 
     suspend fun startAll() {
-        bluetoothTransport.start()
-        wifiDirectTransport.start()
-        loraTransport.start()
-        loopbackTransport.start()
+        // Wi-Fi first (it is the transport that carries mesh discovery), and each transport is
+        // isolated so a failure in one can never prevent the others from starting.
+        val starters: List<Pair<String, suspend () -> Unit>> = listOf(
+            "wifi" to { wifiDirectTransport.start() },
+            "bluetooth" to { bluetoothTransport.start() },
+            "lora" to { loraTransport.start() },
+            "loopback" to { loopbackTransport.start() }
+        )
+        for ((name, start) in starters) {
+            try {
+                start()
+            } catch (t: Throwable) {
+                android.util.Log.e("TransportManager", "Transport '$name' failed to start: ${t.message}", t)
+            }
+        }
     }
 
     suspend fun stopAll() {

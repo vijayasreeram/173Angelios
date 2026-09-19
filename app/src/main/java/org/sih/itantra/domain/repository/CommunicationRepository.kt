@@ -57,7 +57,18 @@ class CommunicationRepository(
     val speechManager: org.sih.itantra.ml.stt.AndroidSpeechManager = org.sih.itantra.ml.stt.AndroidSpeechManager(context),
     val translatorEngine: org.sih.itantra.ml.translation.OfflineTranslatorEngine = org.sih.itantra.ml.translation.OfflineTranslatorEngine()
 ) {
-    private val scope = CoroutineScope(Dispatchers.Default)
+    // SupervisorJob + handler: one failing background coroutine (discovery loop, packet handling,
+    // model download...) must not cancel its siblings or take the whole app down.
+    private val scope = CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + Dispatchers.Default +
+            kotlinx.coroutines.CoroutineExceptionHandler { _, t ->
+                android.util.Log.e("CommunicationRepository", "Unhandled background error: ${t.message}", t)
+            }
+    )
+
+    private companion object {
+        const val PEER_TIMEOUT_MS = 12_000L
+    }
 
     val localNodeId: String = database.getOrCreateNodeId()
 
@@ -197,11 +208,16 @@ class CommunicationRepository(
         // Ultra-fast 1.0s discovery heartbeat + real-time 3.0s disconnected device pruning
         scope.launch {
             delay(250L) // Initial quick broadcast on startup
-            scanForConnectedDevices()
             while (isActive) {
-                delay(1000L) // Real-time 1.0s pulse
-                scanForConnectedDevices()
-                database.pruneStaleNodes(maxAgeMs = 3000L) // Disconnected peers disappear within 3s
+                try {
+                    scanForConnectedDevices()
+                    // Beacons go out every 1s, but Wi-Fi power-save and busy APs drop UDP broadcasts,
+                    // so a peer is only considered gone after ~12s of silence (3s made peers flicker/vanish).
+                    database.pruneStaleNodes(maxAgeMs = PEER_TIMEOUT_MS)
+                } catch (t: Throwable) {
+                    android.util.Log.w("CommunicationRepo", "Discovery tick failed: ${t.message}")
+                }
+                delay(1000L)
             }
         }
     }
@@ -507,7 +523,7 @@ class CommunicationRepository(
      * Actively scans Wi-Fi network for connected peers running iTANTRA via UDP discovery beacon.
      */
     fun scanForConnectedDevices() {
-        database.pruneStaleNodes(maxAgeMs = 4500L)
+        database.pruneStaleNodes(maxAgeMs = PEER_TIMEOUT_MS)
         scope.launch {
             val wifiTransport = transportManager.getTransport(TransportType.WIFI_DIRECT) as? org.sih.itantra.network.transport.WifiDirectTransport
             wifiTransport?.let { wifi ->
