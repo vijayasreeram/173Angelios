@@ -594,15 +594,9 @@ class OfflineTranslatorEngine {
     /**
      * Compound sentence splitter — mirrors how Google Translate handles multi-clause sentences.
      *
-     * When a speaker says something like:
-     *   "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க"
-     *   (= "Hello, I am fine. How are you doing?")
-     *
-     * the single-phrase lookup tiers return only the last matched clause ("How are you doing?"),
-     * dropping the first clause entirely. This function:
-     *   1. Detects clause boundaries using language-specific boundary markers.
-     *   2. Translates each clause independently through the existing tier pipeline.
-     *   3. Joins results with ", " to produce the full translation.
+     * Covers all 9 supported languages. When a speaker says a self-status sentence followed by a
+     * question (e.g. "Hello, I am fine, how are you?"), clause boundary markers (pronouns that
+     * start a new subject) are used to split, translate each clause independently, then rejoin.
      *
      * Only invoked for longer inputs (>7 words) that failed all single-phrase lookups.
      */
@@ -611,29 +605,53 @@ class OfflineTranslatorEngine {
         sourceLanguage: Language,
         targetLanguage: Language
     ): String? {
-        // Tamil clause boundary markers — words/particles that signal the end of one clause
-        // and the start of another in spoken/colloquial Tamil.
-        val tamilBoundaries = listOf(
-            // "நீங்க" / "நீங்கள்" starting a new clause after a self-status report
-            Regex("""(?<=\S)\s+(நீங்க|நீங்கள்)\s+"""),
-            // "நாங்க" / "நாங்கள்" starting a new clause
-            Regex("""(?<=\S)\s+(நாங்க|நாங்கள்)\s+"""),
-            // "அவங்க" / "அவர்கள்"
-            Regex("""(?<=\S)\s+(அவங்க|அவர்கள்)\s+"""),
-        )
-        // Hindi clause boundaries
-        val hindiBoundaries = listOf(
-            Regex("""(?<=\S)\s+(आप|हम|वे)\s+"""),
-        )
-        // Malayalam clause boundaries
-        val malayalamBoundaries = listOf(
-            Regex("""(?<=\S)\s+(നിങ്ങൾ|അവർ)\s+"""),
-        )
-
+        // Language-specific clause boundary markers — subject pronouns that signal a new clause
         val boundaries = when (sourceLanguage) {
-            Language.TAMIL -> tamilBoundaries
-            Language.HINDI -> hindiBoundaries
-            Language.MALAYALAM -> malayalamBoundaries
+            Language.TAMIL -> listOf(
+                Regex("""(?<=\S)\s+(நீங்க|நீங்கள்)\s+"""),
+                Regex("""(?<=\S)\s+(நாங்க|நாங்கள்)\s+"""),
+                Regex("""(?<=\S)\s+(அவங்க|அவர்கள்)\s+"""),
+            )
+            Language.HINDI -> listOf(
+                Regex("""(?<=\S)\s+(आप|तुम|आपने|तुमने)\s+"""),
+                Regex("""(?<=\S)\s+(हम|हमने)\s+"""),
+                Regex("""(?<=\S)\s+(वे|उन्होंने)\s+"""),
+            )
+            Language.TELUGU -> listOf(
+                Regex("""(?<=\S)\s+(మీరు|మీకు|మీతో)\s+"""),
+                Regex("""(?<=\S)\s+(మేము|మనము)\s+"""),
+                Regex("""(?<=\S)\s+(వారు|వారికి)\s+"""),
+            )
+            Language.KANNADA -> listOf(
+                Regex("""(?<=\S)\s+(ನೀವು|ನಿಮಗೆ)\s+"""),
+                Regex("""(?<=\S)\s+(ನಾವು|ನಮಗೆ)\s+"""),
+                Regex("""(?<=\S)\s+(ಅವರು|ಅವರಿಗೆ)\s+"""),
+            )
+            Language.MALAYALAM -> listOf(
+                Regex("""(?<=\S)\s+(നിങ്ങൾ|നിങ്ങൾക്ക്)\s+"""),
+                Regex("""(?<=\S)\s+(ഞങ്ങൾ|നമ്മൾ)\s+"""),
+                Regex("""(?<=\S)\s+(അവർ|അദ്ദേഹം)\s+"""),
+            )
+            Language.BENGALI -> listOf(
+                Regex("""(?<=\S)\s+(আপনি|তুমি|আপনার)\s+"""),
+                Regex("""(?<=\S)\s+(আমরা|আমাদের)\s+"""),
+                Regex("""(?<=\S)\s+(তারা|তাদের)\s+"""),
+            )
+            Language.MARATHI -> listOf(
+                Regex("""(?<=\S)\s+(तुम्ही|आपण|तुमचे)\s+"""),
+                Regex("""(?<=\S)\s+(आम्ही|आपण|आमचे)\s+"""),
+                Regex("""(?<=\S)\s+(ते|त्यांचे)\s+"""),
+            )
+            Language.GUJARATI -> listOf(
+                Regex("""(?<=\S)\s+(તમે|આપ|તમારે)\s+"""),
+                Regex("""(?<=\S)\s+(અમે|આપણે)\s+"""),
+                Regex("""(?<=\S)\s+(તેઓ|તેમને)\s+"""),
+            )
+            Language.PUNJABI -> listOf(
+                Regex("""(?<=\S)\s+(ਤੁਸੀਂ|ਤੁਹਾਡੇ)\s+"""),
+                Regex("""(?<=\S)\s+(ਅਸੀਂ|ਸਾਡੇ)\s+"""),
+                Regex("""(?<=\S)\s+(ਉਹ|ਉਹਨਾਂ)\s+"""),
+            )
             else -> emptyList()
         }
 
@@ -650,17 +668,15 @@ class OfflineTranslatorEngine {
             }
         }
 
-        // Fallback: split on pronounced pause — 5+ word sentences where the word count
-        // of each half is ≥ 2.  Try every internal word boundary as a potential split.
+        // Fallback: try every internal word boundary as a potential split point,
+        // scoring each candidate by whether both halves independently match known phrases.
         if (clauses == null) {
             val words = text.split(Regex("""\s+"""))
             if (words.size >= 5) {
-                // Find the best split point using dictionary match scoring
                 var bestSplit: Pair<String, String>? = null
                 for (i in 2 until words.size - 2) {
                     val left = words.subList(0, i).joinToString(" ")
                     val right = words.subList(i, words.size).joinToString(" ")
-                    // Check if both halves independently match known phrases
                     val leftMatch = matchCommonPhrases(left.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
                         ?: matchSentencePatterns(left, targetLanguage, sourceLanguage)
                     val rightMatch = matchCommonPhrases(right.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
@@ -678,30 +694,26 @@ class OfflineTranslatorEngine {
 
         if (clauses == null || clauses.size < 2) return null
 
-        // Translate each clause independently using the phrase/pattern tiers only
-        // (not recursing into splitAndTranslateCompound to avoid infinite loops)
+        // Translate each clause independently (no recursion into splitAndTranslateCompound)
         val translatedClauses = clauses.map { clause ->
             val clauseLower = clause.lowercase(Locale.ROOT)
-            // Try pack lookup (short clause, safe to substring-match)
             val packResult = translateWithDownloadedPack(clause, sourceLanguage, targetLanguage)
             if (!packResult.isNullOrBlank()) return@map packResult
-            // Try phrase match
             val phraseResult = matchCommonPhrases(clauseLower, targetLanguage, sourceLanguage)
             if (phraseResult != null) return@map phraseResult
-            // Try pattern match
             val patternResult = matchSentencePatterns(clause, targetLanguage, sourceLanguage)
             if (patternResult != null) return@map patternResult
-            // ML Kit for the clause
             val formalClause = ColloquialEngine.toFormal(clause, sourceLanguage)
             val mlResult = translateWithMlKit(formalClause, sourceLanguage, targetLanguage)
                 ?: translateWithMlKit(clause, sourceLanguage, targetLanguage)
-            mlResult ?: clause  // fallback: keep original clause text
+            mlResult ?: clause
         }
 
-        // Only return compound result if at least one clause was actually translated
+        // Return only if at least one clause was actually translated
         if (translatedClauses.all { c -> clauses.any { it == c } }) return null
         return translatedClauses.joinToString(", ")
     }
+
 
     private fun getMlKitLanguageTag(lang: Language): String? {
         return TranslateLanguage.fromLanguageTag(lang.code)
@@ -1315,6 +1327,16 @@ class OfflineTranslatorEngine {
     private fun matchHindiToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "नमस्ते मैं ठीक हूँ आप कैसे हैं",
+            "नमस्ते मैं ठीक हूँ आप कैसे हो",
+            "नमस्कार मैं ठीक हूँ आप कैसे हैं" -> "Hello, I am fine, how are you?"
+            "नमस्ते मैं ठीक हूँ" -> "Hello, I am fine"
+            "मैं ठीक हूँ आप कैसे हैं",
+            "मैं ठीक हूँ आप कैसे हो" -> "I am fine, how are you?"
+            "हम ठीक हैं आप कैसे हैं" -> "We are fine, how are you?"
+            "नमस्ते हम ठीक हैं आप कैसे हैं" -> "Hello, we are fine, how are you?"
+
             "सब लोग कहाँ हो", "सब लोग कहाँ हैं", "आप सब कहाँ हैं", "सब कहाँ हैं" -> "Where are you all?"
             "क्या कर रहे हो", "क्या कर रहे हैं" -> "What are you doing?"
             "कहाँ जा रहे हो", "कहाँ जा रहे हैं" -> "Where are you going?"
@@ -1355,6 +1377,14 @@ class OfflineTranslatorEngine {
     private fun matchTeluguToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "నమస్కారం నేను బాగున్నాను మీరు ఎలా ఉన్నారు",
+            "నమస్కారం నేను బాగున్నాను మీరు ఎలా ఉన్నారా" -> "Hello, I am fine, how are you?"
+            "నమస్కారం నేను బాగున్నాను" -> "Hello, I am fine"
+            "నేను బాగున్నాను మీరు ఎలా ఉన్నారు" -> "I am fine, how are you?"
+            "మేము బాగున్నాము మీరు ఎలా ఉన్నారు" -> "We are fine, how are you?"
+            "నమస్కారం మేము బాగున్నాము మీరు ఎలా ఉన్నారు" -> "Hello, we are fine, how are you?"
+
             "అందరూ ఎక్కడ ఉన్నారు", "అందరూ ఎక్కడున్నారు" -> "Where are you all?"
             "ఏం చేస్తున్నారు", "మీరు ఏమి చేస్తున్నారు" -> "What are you doing?"
             "ఎక్కడికి వెళ్తున్నారు" -> "Where are you going?"
@@ -1378,6 +1408,14 @@ class OfflineTranslatorEngine {
     private fun matchKannadaToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "ನಮಸ್ಕಾರ ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ ನೀವು ಹೇಗಿದ್ದೀರಿ",
+            "ನಮಸ್ಕಾರ ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ ನೀವು ಹೇಗಿದ್ದೀರಾ" -> "Hello, I am fine, how are you?"
+            "ನಮಸ್ಕಾರ ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ" -> "Hello, I am fine"
+            "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ ನೀವು ಹೇಗಿದ್ದೀರಿ" -> "I am fine, how are you?"
+            "ನಾವು ಚೆನ್ನಾಗಿದ್ದೇವೆ ನೀವು ಹೇಗಿದ್ದೀರಿ" -> "We are fine, how are you?"
+            "ನಮಸ್ಕಾರ ನಾವು ಚೆನ್ನಾಗಿದ್ದೇವೆ ನೀವು ಹೇಗಿದ್ದೀರಿ" -> "Hello, we are fine, how are you?"
+
             "ಎಲ್ಲರೂ ಎಲ್ಲಿದ್ದಾರೆ", "ಎಲ್ಲರೂ ಎಲ್ಲಿದ್ದೀರಿ" -> "Where are you all?"
             "ಏನ್ ಮಾಡ್ತಿದ್ದೀರಾ", "ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ" -> "What are you doing?"
             "ಟೆನ್ಷನ್ ಬೇಡ" -> "Do not worry"
@@ -1400,6 +1438,14 @@ class OfflineTranslatorEngine {
     private fun matchMalayalamToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "നമസ്കാരം എനിക്ക് സുഖമാണ് നിങ്ങൾ സുഖമാണോ",
+            "നമസ്കാരം എനിക്ക് സുഖമാണ് നിങ്ങൾക്ക് സുഖമാണോ" -> "Hello, I am fine, how are you?"
+            "നമസ്കാരം എനിക്ക് സുഖമാണ്" -> "Hello, I am fine"
+            "എനിക്ക് സുഖമാണ് നിങ്ങൾ സുഖമാണോ" -> "I am fine, how are you?"
+            "ഞങ്ങൾക്ക് സുഖമാണ് നിങ്ങൾ സുഖമാണോ" -> "We are fine, how are you?"
+            "നമസ്കാരം ഞങ്ങൾക്ക് സുഖമാണ് നിങ്ങൾ സുഖമാണോ" -> "Hello, we are fine, how are you?"
+
             "എല്ലാവരും എവിടെയാണ്", "എല്ലാവരും എവിടെയാ" -> "Where are you all?"
             "എന്താ ചെയ്യുന്നേ", "എന്താണ് ചെയ്യുന്നത്" -> "What are you doing?"
             "ടെൻഷൻ വേണ്ട" -> "Do not worry"
@@ -1422,6 +1468,16 @@ class OfflineTranslatorEngine {
     private fun matchBengaliToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "নমস্কার আমি ভালো আছি আপনি কেমন আছেন",
+            "হ্যালো আমি ভালো আছি আপনি কেমন আছেন",
+            "নমস্কার আমি ভালো আছি তুমি কেমন আছ" -> "Hello, I am fine, how are you?"
+            "নমস্কার আমি ভালো আছি" -> "Hello, I am fine"
+            "আমি ভালো আছি আপনি কেমন আছেন",
+            "আমি ভালো আছি তুমি কেমন আছ" -> "I am fine, how are you?"
+            "আমরা ভালো আছি আপনি কেমন আছেন" -> "We are fine, how are you?"
+            "নমস্কার আমরা ভালো আছি আপনি কেমন আছেন" -> "Hello, we are fine, how are you?"
+
             "সবাই কোথায় আছেন", "সবাই কোথায় আছো" -> "Where is everyone?"
             "কী করছেন", "কী করছো" -> "What are you doing?"
             "কোথায় যাচ্ছেন", "কোথায় যাচ্ছো" -> "Where are you going?"
@@ -1462,6 +1518,15 @@ class OfflineTranslatorEngine {
     private fun matchMarathiToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "नमस्कार मी ठीक आहे तुम्ही कसे आहात",
+            "नमस्कार मी ठीक आहे आपण कसे आहात" -> "Hello, I am fine, how are you?"
+            "नमस्कार मी ठीक आहे" -> "Hello, I am fine"
+            "मी ठीक आहे तुम्ही कसे आहात",
+            "मी ठीक आहे आपण कसे आहात" -> "I am fine, how are you?"
+            "आम्ही ठीक आहोत तुम्ही कसे आहात" -> "We are fine, how are you?"
+            "नमस्कार आम्ही ठीक आहोत तुम्ही कसे आहात" -> "Hello, we are fine, how are you?"
+
             "सगळे कुठे आहेत", "सगळे कुठे आहात" -> "Where is everyone?"
             "काय करत आहात", "तू काय करतोयस" -> "What are you doing?"
             "कुठे जात आहात" -> "Where are you going?"
@@ -1502,6 +1567,15 @@ class OfflineTranslatorEngine {
     private fun matchGujaratiToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "નમસ્તે હું ઠીક છું તમે કેમ છો",
+            "નમસ્તે હું ઠીક છું આપ કેમ છો" -> "Hello, I am fine, how are you?"
+            "નમસ્તે હું ઠીક છું" -> "Hello, I am fine"
+            "હું ઠીક છું તમે કેમ છો",
+            "હું ઠીક છું આપ કેમ છો" -> "I am fine, how are you?"
+            "અમે ઠીક છીએ તમે કેમ છો" -> "We are fine, how are you?"
+            "નમસ્તે અમે ઠીક છીએ તમે કેમ છો" -> "Hello, we are fine, how are you?"
+
             "બધા ક્યાં છે" -> "Where is everyone?"
             "શું કરો છો" -> "What are you doing?"
             "ક્યાં જાવ છો" -> "Where are you going?"
@@ -1542,6 +1616,14 @@ class OfflineTranslatorEngine {
     private fun matchPunjabiToEnglish(clean: String): String? {
         val noPunct = clean.replace(Regex("""[?!.,।॥]"""), "").trim()
         return when (noPunct) {
+            // Compound greeting + status + question phrases
+            "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਮੈਂ ਠੀਕ ਹਾਂ ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ",
+            "ਹੈਲੋ ਮੈਂ ਠੀਕ ਹਾਂ ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ" -> "Hello, I am fine, how are you?"
+            "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਮੈਂ ਠੀਕ ਹਾਂ" -> "Hello, I am fine"
+            "ਮੈਂ ਠੀਕ ਹਾਂ ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ" -> "I am fine, how are you?"
+            "ਅਸੀਂ ਠੀਕ ਹਾਂ ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ" -> "We are fine, how are you?"
+            "ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਅਸੀਂ ਠੀਕ ਹਾਂ ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ" -> "Hello, we are fine, how are you?"
+
             "ਸਾਰੇ ਕਿੱਥੇ ਹਨ", "ਸਾਰੇ ਕਿੱਥੇ ਹੋ" -> "Where is everyone?"
             "ਕੀ ਕਰ ਰਹੇ ਹੋ" -> "What are you doing?"
             "ਕਿੱਥੇ ਜਾ ਰਹੇ ਹੋ" -> "Where are you going?"
