@@ -339,15 +339,14 @@ class OfflineTranslatorEngine {
             pack.phrasesTargetToEn[cleanInput]?.let { return it }
             pack.phrasesTargetToEn[cleanPunct]?.let { return it }
 
-            // 2. Substring / reverse phrase match — ONLY for short inputs (≤7 words).
-            // For longer, multi-clause sentences (e.g. "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க")
-            // a substring match would silently drop the first clause (returning only
-            // "How are you?" and losing "Hello, I am fine"). Multi-clause inputs must
-            // fall through to splitAndTranslateCompound() in the main translate() pipeline.
-            val inputWordCount = cleanInput.split(Regex("""\s+""")).size
-            if (inputWordCount <= 7) {
-                pack.phrasesTargetToEn.entries.find { cleanInput.contains(it.key) || it.key.contains(cleanInput) || cleanPunct.contains(it.key.lowercase(Locale.ROOT)) }?.let { return it.value }
-            }
+            // 2. Substring / reverse phrase match — ONLY if key covers ≥80% of input length
+            // Never drop clauses: a 5-char word like "வணக்கம்" must not match inside a 40-char compound sentence!
+            pack.phrasesTargetToEn.entries.find { entry ->
+                val k = entry.key
+                cleanInput.equals(k, ignoreCase = true) ||
+                cleanPunct.equals(k, ignoreCase = true) ||
+                (k.length >= cleanInput.length * 0.8 && (cleanInput.contains(k) || k.contains(cleanInput)))
+            }?.let { return it.value }
 
             // 3. Tanglish conversion if source is Tamil or contains Tanglish words
             if (pack.tanglishMap.isNotEmpty()) {
@@ -361,25 +360,17 @@ class OfflineTranslatorEngine {
                     pack.phrasesTargetToEn[converted]?.let { return it }
                     val cleanConv = converted.replace(Regex("[^a-zA-Z0-9\\s\\u0900-\\u0DFF]"), " ").replace(Regex("\\s+"), " ").trim()
                     pack.phrasesTargetToEn[cleanConv]?.let { return it }
-                    pack.phrasesTargetToEn.entries.find { cleanConv.contains(it.key) }?.let { return it.value }
+                    pack.phrasesTargetToEn.entries.find { it.key.equals(cleanConv, ignoreCase = true) }?.let { return it.value }
                 }
             }
 
-            // 4. Lexicon word match
-            // Skipped when the sentence contains a negation marker: this fallback only
-            // detects that a known word (e.g. "help") is present and stamps out a fixed
-            // "X reported" template, which flips the meaning of a negative statement
-            // (e.g. "can't help" -> "Tactical report: help reported"). Let negated
-            // sentences fall through to the phrase/pattern/neural tiers instead.
-            if (!containsNegationMarker(cleanInput)) {
-                val matchedWords = mutableListOf<String>()
+            // 4. Lexicon word match — only for single-word queries, never for full sentences
+            val inputWords = cleanInput.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (inputWords.size == 1 && !containsNegationMarker(cleanInput)) {
                 for ((enWord, indicWord) in pack.lexicon) {
-                    if (cleanInput.contains(indicWord) || lowerInput.contains(enWord)) {
-                        matchedWords.add(enWord)
+                    if (cleanInput.equals(indicWord, ignoreCase = true) || lowerInput.equals(enWord, ignoreCase = true)) {
+                        return enWord
                     }
-                }
-                if (matchedWords.isNotEmpty()) {
-                    return "Tactical report: " + matchedWords.joinToString(", ") + " reported"
                 }
             }
         }
@@ -391,16 +382,22 @@ class OfflineTranslatorEngine {
             pack.phrasesEnToTarget[lowerInput]?.let { return it }
             pack.phrasesEnToTarget[cleanPunct]?.let { return it }
 
-            // 2. Substring match — guard to short inputs only (≤7 words) for same reason as Case A
-            val enWordCount = lowerInput.split(Regex("""\s+""")).size
-            if (enWordCount <= 7) {
-                pack.phrasesEnToTarget.entries.find { lowerInput.contains(it.key) || it.key.contains(lowerInput) || cleanPunct.contains(it.key) }?.let { return it.value }
-            }
+            // 2. Substring match — ONLY if key covers ≥80% of input length
+            // Never drop clauses: e.g. "hello" (5 chars) must NEVER match inside "hello how are you" (17 chars)
+            pack.phrasesEnToTarget.entries.find { entry ->
+                val k = entry.key
+                lowerInput.equals(k, ignoreCase = true) ||
+                cleanPunct.equals(k, ignoreCase = true) ||
+                (k.length >= lowerInput.length * 0.8 && (lowerInput.contains(k) || k.contains(lowerInput)))
+            }?.let { return it.value }
 
-            // 3. Lexicon match
-            for ((enWord, indicWord) in pack.lexicon) {
-                if (cleanPunct.contains(enWord)) {
-                    return indicWord
+            // 3. Lexicon match — only for single-word queries, never truncate a multi-word sentence!
+            val enWordList = lowerInput.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (enWordList.size == 1) {
+                for ((enWord, indicWord) in pack.lexicon) {
+                    if (cleanPunct.equals(enWord, ignoreCase = true) || lowerInput.equals(enWord, ignoreCase = true)) {
+                        return indicWord
+                    }
                 }
             }
         }
@@ -501,23 +498,7 @@ class OfflineTranslatorEngine {
             return colloquialPack
         }
 
-        // Tier 1.5: Compound Sentence Splitter (Google Translate-style multi-clause handling)
-        // For inputs > 7 words that failed single-phrase pack lookup, detect clause boundaries
-        // (e.g. "வணக்கம் நான் நல்லா இருக்கேன் நீங்க எப்படி இருக்கீங்க") and translate each
-        // clause independently, then join — producing "Hello, I am fine, How are you doing?"
-        // instead of silently dropping the first clause.
-        val inputWordCount = trimmed.split(Regex("""\s+""")).size
-        if (inputWordCount > 7) {
-            val compoundResult = splitAndTranslateCompound(trimmed, actualSource, targetLanguage)
-                ?: if (formalText != trimmed) splitAndTranslateCompound(formalText, actualSource, targetLanguage) else null
-            if (!compoundResult.isNullOrBlank()) {
-                val colloquialCompound = ColloquialEngine.toColloquial(compoundResult, targetLanguage, trimmed)
-                translationCache[cacheKey] = colloquialCompound
-                return colloquialCompound
-            }
-        }
-
-        // Tier 2: Direct High-Fidelity Idiomatic & Conversational Phrase Matching (0.02 ms)
+        // Tier 1.5: Direct High-Fidelity Idiomatic & Conversational Phrase Matching (0.02 ms)
         var phraseMatch = matchCommonPhrases(trimmed.lowercase(Locale.ROOT), targetLanguage, actualSource)
         if (phraseMatch == null && formalText != trimmed) {
             phraseMatch = matchCommonPhrases(formalText.lowercase(Locale.ROOT), targetLanguage, actualSource)
@@ -528,7 +509,7 @@ class OfflineTranslatorEngine {
             return colloquialPhrase
         }
 
-        // Tier 3: Syntactic Pattern Matching with Slot Substitution (0.02 ms)
+        // Tier 1.7: Syntactic Pattern Matching with Slot Substitution (0.02 ms)
         var patternMatch = matchSentencePatterns(trimmed, targetLanguage, actualSource)
         if (patternMatch == null && formalText != trimmed) {
             patternMatch = matchSentencePatterns(formalText, targetLanguage, actualSource)
@@ -537,6 +518,20 @@ class OfflineTranslatorEngine {
             val colloquialPattern = ColloquialEngine.toColloquial(patternMatch, targetLanguage, trimmed)
             translationCache[cacheKey] = colloquialPattern
             return colloquialPattern
+        }
+
+        // Tier 2: Compound Sentence Splitter (Google Translate-style multi-clause handling)
+        // Splits multi-clause sentences at punctuation, conjunctions, or clause boundaries
+        // and translates each clause independently, producing complete translations without dropping words
+        val inputWordCount = trimmed.split(Regex("""\s+""")).filter { it.isNotBlank() }.size
+        if (inputWordCount >= 2) {
+            val compoundResult = splitAndTranslateCompound(trimmed, actualSource, targetLanguage)
+                ?: if (formalText != trimmed) splitAndTranslateCompound(formalText, actualSource, targetLanguage) else null
+            if (!compoundResult.isNullOrBlank()) {
+                val colloquialCompound = ColloquialEngine.toColloquial(compoundResult, targetLanguage, trimmed)
+                translationCache[cacheKey] = colloquialCompound
+                return colloquialCompound
+            }
         }
 
         // Tier 4: Ultra-Fast Edge Server Query (Only if local pack did not match and base station is active)
@@ -605,52 +600,92 @@ class OfflineTranslatorEngine {
         sourceLanguage: Language,
         targetLanguage: Language
     ): String? {
-        // Language-specific clause boundary markers — subject pronouns that signal a new clause
+        val cleanText = text.trim()
+
+        // 1. First check explicit punctuation splits (commas, semicolons, full stops, question marks)
+        // e.g. "hello, how are you", "I am fine. Where are you?"
+        val punctMatch = Regex("""(?<=\S)[,;!?]\s+(?=\S)""").find(cleanText)
+        if (punctMatch != null) {
+            val splitIdx = punctMatch.range.first
+            val c1 = cleanText.substring(0, splitIdx).trim()
+            val c2 = cleanText.substring(punctMatch.range.last + 1).trim()
+            if (c1.isNotBlank() && c2.isNotBlank()) {
+                val t1 = translate(c1, targetLanguage, sourceLanguage)
+                val t2 = translate(c2, targetLanguage, sourceLanguage)
+                if (t1 != c1 || t2 != c2) {
+                    val sep = if (t1.endsWith("?") || t1.endsWith(".") || t1.endsWith("!")) " " else ", "
+                    return "$t1$sep$t2"
+                }
+            }
+        }
+
+        // 2. Language-specific clause boundary markers
         val boundaries = when (sourceLanguage) {
+            Language.ENGLISH -> listOf(
+                // Greeting prefix: "hello how are you", "good morning where are you"
+                Regex("""(?<=\b(?:hello|hi|hey|good\s+morning|good\s+afternoon|good\s+evening|good\s+night))\s+(?=\S)""", RegexOption.IGNORE_CASE),
+                // Status prefix: "i am fine how are you", "we are safe where are you"
+                Regex("""(?<=\b(?:i am fine|im fine|i am good|we are fine|we are good|we are safe|i am safe|all clear|all safe))\s+(?=\S)""", RegexOption.IGNORE_CASE),
+                // Question starters: "what is your name", "where are you", "how are you"
+                Regex("""(?<=\S)\s+(?=(?:how\s+are\s+you|how\s+are\s+you\s+doing|where\s+are\s+you|what\s+are\s+you\s+doing|what\s+is\s+your|what\s+happened|are\s+you\s+safe|can\s+you\s+help|please\s+help)\b)""", RegexOption.IGNORE_CASE),
+                // Conjunctions: and, but, so, then, or
+                Regex("""(?<=\S)\s+(?:and|but|so|then|or)\s+(?=\S)""", RegexOption.IGNORE_CASE),
+            )
             Language.TAMIL -> listOf(
                 Regex("""(?<=\S)\s+(நீங்க|நீங்கள்)\s+"""),
                 Regex("""(?<=\S)\s+(நாங்க|நாங்கள்)\s+"""),
                 Regex("""(?<=\S)\s+(அவங்க|அவர்கள்)\s+"""),
+                Regex("""(?<=\b(?:வணக்கம்|காலை\s+வணக்கம்|மாலை\s+வணக்கம்))\s+(?=\S)"""),
+                Regex("""(?<=\b(?:நல்லா\s+இருக்கேன்|நலமாக\s+இருக்கிறேன்|நல்லா\s+இருக்கோம்))\s+(?=\S)"""),
             )
             Language.HINDI -> listOf(
                 Regex("""(?<=\S)\s+(आप|तुम|आपने|तुमने)\s+"""),
                 Regex("""(?<=\S)\s+(हम|हमने)\s+"""),
                 Regex("""(?<=\S)\s+(वे|उन्होंने)\s+"""),
+                Regex("""(?<=\b(?:नमस्ते|नमस्कार|हेलो))\s+(?=\S)"""),
+                Regex("""(?<=\b(?:ठीक\s+हूँ|ठीक\s+हैं))\s+(?=\S)"""),
             )
             Language.TELUGU -> listOf(
                 Regex("""(?<=\S)\s+(మీరు|మీకు|మీతో)\s+"""),
                 Regex("""(?<=\S)\s+(మేము|మనము)\s+"""),
                 Regex("""(?<=\S)\s+(వారు|వారికి)\s+"""),
+                Regex("""(?<=\b(?:నమస్కారం))\s+(?=\S)"""),
             )
             Language.KANNADA -> listOf(
                 Regex("""(?<=\S)\s+(ನೀವು|ನಿಮಗೆ)\s+"""),
                 Regex("""(?<=\S)\s+(ನಾವು|ನಮಗೆ)\s+"""),
                 Regex("""(?<=\S)\s+(ಅವರು|ಅವರಿಗೆ)\s+"""),
+                Regex("""(?<=\b(?:ನಮಸ್ಕಾರ))\s+(?=\S)"""),
             )
             Language.MALAYALAM -> listOf(
                 Regex("""(?<=\S)\s+(നിങ്ങൾ|നിങ്ങൾക്ക്)\s+"""),
                 Regex("""(?<=\S)\s+(ഞങ്ങൾ|നമ്മൾ)\s+"""),
                 Regex("""(?<=\S)\s+(അവർ|അദ്ദേഹം)\s+"""),
+                Regex("""(?<=\b(?:നമസ്കാരം))\s+(?=\S)"""),
             )
             Language.BENGALI -> listOf(
                 Regex("""(?<=\S)\s+(আপনি|তুমি|আপনার)\s+"""),
                 Regex("""(?<=\S)\s+(আমরা|আমাদের)\s+"""),
                 Regex("""(?<=\S)\s+(তারা|তাদের)\s+"""),
+                Regex("""(?<=\b(?:নমস্কার|হ্যালো))\s+(?=\S)"""),
             )
             Language.MARATHI -> listOf(
                 Regex("""(?<=\S)\s+(तुम्ही|आपण|तुमचे)\s+"""),
                 Regex("""(?<=\S)\s+(आम्ही|आपण|आमचे)\s+"""),
                 Regex("""(?<=\S)\s+(ते|त्यांचे)\s+"""),
+                Regex("""(?<=\b(?:नमस्कार))\s+(?=\S)"""),
             )
             Language.GUJARATI -> listOf(
                 Regex("""(?<=\S)\s+(તમે|આપ|તમારે)\s+"""),
                 Regex("""(?<=\S)\s+(અમે|આપણે)\s+"""),
                 Regex("""(?<=\S)\s+(તેઓ|તેમને)\s+"""),
+                Regex("""(?<=\b(?:નમસ્તે))\s+(?=\S)"""),
             )
             Language.PUNJABI -> listOf(
                 Regex("""(?<=\S)\s+(ਤੁਸੀਂ|ਤੁਹਾਡੇ)\s+"""),
                 Regex("""(?<=\S)\s+(ਅਸੀਂ|ਸਾਡੇ)\s+"""),
                 Regex("""(?<=\S)\s+(ਉਹ|ਉਹਨਾਂ)\s+"""),
+                Regex("""(?<=\b(?:ਸਤ\s+ਸ੍ਰੀ\s+ਅਕਾਲ))\s+(?=\S)"""),
             )
             else -> emptyList()
         }
@@ -658,29 +693,33 @@ class OfflineTranslatorEngine {
         // Split into clauses at the first matching boundary
         var clauses: List<String>? = null
         for (boundaryRegex in boundaries) {
-            val matchResult = boundaryRegex.find(text) ?: continue
+            val matchResult = boundaryRegex.find(cleanText) ?: continue
             val splitIndex = matchResult.range.first
-            val clause1 = text.substring(0, splitIndex).trim()
-            val clause2 = text.substring(splitIndex).trim()
+            val clause1 = cleanText.substring(0, splitIndex).trim()
+            val clause2 = cleanText.substring(matchResult.range.last + 1).trim()
             if (clause1.isNotBlank() && clause2.isNotBlank()) {
                 clauses = listOf(clause1, clause2)
                 break
             }
         }
 
-        // Fallback: try every internal word boundary as a potential split point,
-        // scoring each candidate by whether both halves independently match known phrases.
+        // 3. Fallback: try every internal word boundary as a potential split point
+        // Checks if BOTH left and right halves independently produce valid translations
         if (clauses == null) {
-            val words = text.split(Regex("""\s+"""))
-            if (words.size >= 5) {
+            val words = cleanText.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (words.size >= 2) {
                 var bestSplit: Pair<String, String>? = null
-                for (i in 2 until words.size - 2) {
+                for (i in 1 until words.size) {
                     val left = words.subList(0, i).joinToString(" ")
                     val right = words.subList(i, words.size).joinToString(" ")
-                    val leftMatch = matchCommonPhrases(left.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
+                    val leftLower = left.lowercase(Locale.ROOT)
+                    val rightLower = right.lowercase(Locale.ROOT)
+                    val leftMatch = matchCommonPhrases(leftLower, targetLanguage, sourceLanguage)
                         ?: matchSentencePatterns(left, targetLanguage, sourceLanguage)
-                    val rightMatch = matchCommonPhrases(right.lowercase(Locale.ROOT), targetLanguage, sourceLanguage)
+                        ?: translateWithDownloadedPack(left, sourceLanguage, targetLanguage)
+                    val rightMatch = matchCommonPhrases(rightLower, targetLanguage, sourceLanguage)
                         ?: matchSentencePatterns(right, targetLanguage, sourceLanguage)
+                        ?: translateWithDownloadedPack(right, sourceLanguage, targetLanguage)
                     if (leftMatch != null && rightMatch != null) {
                         bestSplit = Pair(left, right)
                         break
@@ -694,15 +733,15 @@ class OfflineTranslatorEngine {
 
         if (clauses == null || clauses.size < 2) return null
 
-        // Translate each clause independently (no recursion into splitAndTranslateCompound)
+        // Translate each clause independently
         val translatedClauses = clauses.map { clause ->
             val clauseLower = clause.lowercase(Locale.ROOT)
-            val packResult = translateWithDownloadedPack(clause, sourceLanguage, targetLanguage)
-            if (!packResult.isNullOrBlank()) return@map packResult
             val phraseResult = matchCommonPhrases(clauseLower, targetLanguage, sourceLanguage)
             if (phraseResult != null) return@map phraseResult
             val patternResult = matchSentencePatterns(clause, targetLanguage, sourceLanguage)
             if (patternResult != null) return@map patternResult
+            val packResult = translateWithDownloadedPack(clause, sourceLanguage, targetLanguage)
+            if (!packResult.isNullOrBlank()) return@map packResult
             val formalClause = ColloquialEngine.toFormal(clause, sourceLanguage)
             val mlResult = translateWithMlKit(formalClause, sourceLanguage, targetLanguage)
                 ?: translateWithMlKit(clause, sourceLanguage, targetLanguage)
@@ -710,8 +749,12 @@ class OfflineTranslatorEngine {
         }
 
         // Return only if at least one clause was actually translated
-        if (translatedClauses.all { c -> clauses.any { it == c } }) return null
-        return translatedClauses.joinToString(", ")
+        if (translatedClauses.all { c -> clauses.any { it.equals(c, ignoreCase = true) } }) return null
+
+        val first = translatedClauses[0].trim()
+        val second = translatedClauses[1].trim()
+        val sep = if (first.endsWith("?") || first.endsWith("!") || first.endsWith(".")) " " else ", "
+        return "$first$sep$second"
     }
 
 
@@ -997,6 +1040,21 @@ class OfflineTranslatorEngine {
 
         return when (lang) {
             Language.TAMIL -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions (Exact Google Translate matches)
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "நான் நலமாக இருக்கிறேன், நீங்கள் எப்படி இருக்கிறீர்கள்?"
+                "we are fine how are you", "we are good how are you" -> "நாங்கள் நலமாக இருக்கிறோம், நீங்கள் எப்படி இருக்கிறீர்கள்?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "நான் நலமாக இருக்கிறேன், நீங்கள் எப்படி?"
+                "hello where are you", "hi where are you" -> "வணக்கம், நீங்கள் எங்கே இருக்கிறீர்கள்?"
+                "hello what are you doing", "hi what are you doing" -> "வணக்கம், நீங்கள் என்ன செய்கிறீர்கள்?"
+                "hello what happened", "hi what happened" -> "வணக்கம், என்ன நடந்தது?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "நான் நலமாக இருக்கிறேன், நன்றி"
+                "thank you very much", "thank you so much", "thanks a lot" -> "மிக்க நன்றி"
+                "can you help me", "could you help me" -> "தயவுசெய்து எனக்கு உதவ முடியுமா?"
+                "can you help us", "could you help us" -> "தயவுசெய்து எங்களுக்கு உதவ முடியுமா?"
+                "where are you going" -> "நீங்கள் எங்கே போகிறீர்கள்?"
+                "what are you doing" -> "நீங்கள் என்ன செய்கிறீர்கள்?"
+
                 // Greetings & Basics
                 "hello", "hi", "hey" -> "வணக்கம்"
                 "good morning" -> "காலை வணக்கம்"
@@ -1069,13 +1127,28 @@ class OfflineTranslatorEngine {
                 "order understood standing by", "order understood, standing by." -> "உத்தரவு புரிந்தது, இணைப்பில் காத்திருக்கிறோம்"
                 "yes", "yeah", "correct" -> "ஆம்"
                 "no", "nope" -> "இல்லை"
-                "thank you", "thanks", "thank you very much" -> "மிக்க நன்றி"
+                "thank you", "thanks" -> "நன்றி"
                 "you are welcome", "welcome" -> "நல்வரவு"
                 "goodbye", "bye", "see you later" -> "வணக்கம், மீண்டும் சந்திப்போம்"
                 else -> null
             }
 
             Language.HINDI -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "नमस्ते, आप कैसे हैं?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "मैं ठीक हूँ, आप कैसे हैं?"
+                "we are fine how are you", "we are good how are you" -> "हम ठीक हैं, आप कैसे हैं?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "मैं ठीक हूँ, आप बताइए?"
+                "hello where are you", "hi where are you" -> "नमस्ते, आप कहाँ हैं?"
+                "hello what are you doing", "hi what are you doing" -> "नमस्ते, आप क्या कर रहे हैं?"
+                "hello what happened", "hi what happened" -> "नमस्ते, क्या हुआ है?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "मैं ठीक हूँ, धन्यवाद"
+                "thank you very much", "thank you so much", "thanks a lot" -> "बहुत बहुत धन्यवाद"
+                "can you help me", "could you help me" -> "क्या आप मेरी मदद कर सकते हैं?"
+                "can you help us", "could you help us" -> "क्या आप हमारी मदद कर सकते हैं?"
+                "where are you going" -> "आप कहाँ जा रहे हैं?"
+                "what are you doing" -> "आप क्या कर रहे हैं?"
+
                 "hello", "hi", "hey" -> "नमस्ते"
                 "how are you", "how are you doing" -> "आप कैसे हैं?"
                 "i am fine", "i am good", "fine" -> "मैं ठीक हूँ"
@@ -1109,6 +1182,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.TELUGU -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "నమస్కారం, మీరు ఎలా ఉన్నారు?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "నేను బాగున్నాను, మీరు ఎలా ఉన్నారు?"
+                "we are fine how are you", "we are good how are you" -> "మేము బాగున్నాము, మీరు ఎలా ఉన్నారు?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "నేను బాగున్నాను, మరి మీరు?"
+                "hello where are you", "hi where are you" -> "నమస్కారం, మీరు ఎక్కడ ఉన్నారు?"
+                "hello what are you doing", "hi what are you doing" -> "నమస్కారం, మీరు ఏమి చేస్తున్నారు?"
+                "hello what happened", "hi what happened" -> "నమస్కారం, ఏమి జరిగింది?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "నేను బాగున్నాను, ధన్యవాదాలు"
+                "thank you very much", "thank you so much", "thanks a lot" -> "చాలా ధన్యవాదాలు"
+                "can you help me", "could you help me" -> "దయచేసి నాకు సహాయం చేయగలరా?"
+                "can you help us", "could you help us" -> "దయచేసి మాకు సహాయం చేయగలరా?"
+                "where are you going" -> "మీరు ఎక్కడికి వెళ్తున్నారు?"
+                "what are you doing" -> "మీరు ఏమి చేస్తున్నారు?"
+
                 "hello", "hi" -> "నమస్కారం"
                 "how are you" -> "మీరు ఎలా ఉన్నారు?"
                 "i am fine" -> "నేను బాగున్నాను"
@@ -1127,6 +1215,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.KANNADA -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "ನಮಸ್ಕಾರ, ನೀವು ಹೇಗಿದ್ದೀರಿ?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ, ನೀವು ಹೇಗಿದ್ದೀರಿ?"
+                "we are fine how are you", "we are good how are you" -> "ನಾವು ಚೆನ್ನಾಗಿದ್ದೇವೆ, ನೀವು ಹೇಗಿದ್ದೀರಿ?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ, ನೀವು ಹೇಗಿದ್ದೀರಿ?"
+                "hello where are you", "hi where are you" -> "ನಮಸ್ಕಾರ, ನೀವು ಎಲ್ಲಿದ್ದೀರಿ?"
+                "hello what are you doing", "hi what are you doing" -> "ನಮಸ್ಕಾರ, ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?"
+                "hello what happened", "hi what happened" -> "ನಮಸ್ಕಾರ, ಏನಾಯಿತು?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ, ಧನ್ಯವಾದಗಳು"
+                "thank you very much", "thank you so much", "thanks a lot" -> "ತುಂಬಾ ಧನ್ಯವಾದಗಳು"
+                "can you help me", "could you help me" -> "ದಯವಿಟ್ಟು ನನಗೆ ಸಹಾಯ ಮಾಡಬಹುದೇ?"
+                "can you help us", "could you help us" -> "ದಯವಿಟ್ಟು ನಮಗೆ ಸಹಾಯ ಮಾಡಬಹುದೇ?"
+                "where are you going" -> "ನೀವು ಎಲ್ಲಿಗೆ ಹೋಗುತ್ತಿದ್ದೀರಿ?"
+                "what are you doing" -> "ನೀವು ಏನು ಮಾಡುತ್ತಿದ್ದೀರಿ?"
+
                 "hello", "hi" -> "ನಮಸ್ಕಾರ"
                 "how are you" -> "ನೀವು ಹೇಗಿದ್ದೀರಿ?"
                 "i am fine" -> "ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ"
@@ -1145,6 +1248,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.MALAYALAM -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "നമസ്കാരം, സുഖമാണോ?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "എനിക്ക് സുഖമാണ്, സുഖമാണോ?"
+                "we are fine how are you", "we are good how are you" -> "ഞങ്ങൾക്ക് സുഖമാണ്, സുഖമാണോ?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "എനിക്ക് സുഖമാണ്, നിങ്ങൾക്കോ?"
+                "hello where are you", "hi where are you" -> "നമസ്കാരം, നിങ്ങൾ എവിടെയാണ്?"
+                "hello what are you doing", "hi what are you doing" -> "നമസ്കാരം, നിങ്ങൾ എന്താണ് ചെയ്യുന്നത്?"
+                "hello what happened", "hi what happened" -> "നമസ്കാരം, എന്താണ് സംഭവിച്ചത്?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "എനിക്ക് സുഖമാണ്, നന്ദി"
+                "thank you very much", "thank you so much", "thanks a lot" -> "വളരെ നന്ദി"
+                "can you help me", "could you help me" -> "ദയവായി എന്നെ സഹായിക്കാമോ?"
+                "can you help us", "could you help us" -> "ദയവായി ഞങ്ങളെ സഹായിക്കാമോ?"
+                "where are you going" -> "നിങ്ങൾ എവിടെ പോകുന്നു?"
+                "what are you doing" -> "നിങ്ങൾ എന്താണ് ചെയ്യുന്നത്?"
+
                 "hello", "hi" -> "നമസ്കാരം"
                 "how are you" -> "സുഖമാണോ?"
                 "i am fine" -> "എനിക്ക് സുഖമാണ്"
@@ -1163,6 +1281,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.BENGALI -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "নমস্কার, আপনি কেমন আছেন?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "আমি ভালো আছি, আপনি কেমন আছেন?"
+                "we are fine how are you", "we are good how are you" -> "আমরা ভালো আছি, আপনি কেমন আছেন?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "আমি ভালো আছি, আপনি কেমন আছেন?"
+                "hello where are you", "hi where are you" -> "নমস্কার, আপনি কোথায় আছেন?"
+                "hello what are you doing", "hi what are you doing" -> "নমস্কার, আপনি কি করছেন?"
+                "hello what happened", "hi what happened" -> "নমস্কার, কি হয়েছে?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "আমি ভালো আছি, ধন্যবাদ"
+                "thank you very much", "thank you so much", "thanks a lot" -> "আপনাকে অনেক ধন্যবাদ"
+                "can you help me", "could you help me" -> "দয়া করে আপনি কি আমাকে সাহায্য করতে পারেন?"
+                "can you help us", "could you help us" -> "দয়া করে আপনি কি আমাদের সাহায্য করতে পারেন?"
+                "where are you going" -> "আপনি কোথায় যাচ্ছেন?"
+                "what are you doing" -> "আপনি কি করছেন?"
+
                 "hello", "hi" -> "নমস্কার"
                 "how are you" -> "আপনি কেমন আছেন?"
                 "i am fine" -> "আমি ভালো আছি"
@@ -1181,6 +1314,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.MARATHI -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "नमस्कार, तुम्ही कसे आहात?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "मी ठीक आहे, तुम्ही कसे आहात?"
+                "we are fine how are you", "we are good how are you" -> "आम्ही ठीक आहोत, तुम्ही कसे आहात?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "मी ठीक आहे, तुम्ही कसे आहात?"
+                "hello where are you", "hi where are you" -> "नमस्कार, तुम्ही कुठे आहात?"
+                "hello what are you doing", "hi what are you doing" -> "नमस्कार, तुम्ही काय करत आहात?"
+                "hello what happened", "hi what happened" -> "नमस्कार, काय झाले?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "मी ठीक आहे, धन्यवाद"
+                "thank you very much", "thank you so much", "thanks a lot" -> "खूप खूप धन्यवाद"
+                "can you help me", "could you help me" -> "कृपया तुम्ही मला मदत करू शकता का?"
+                "can you help us", "could you help us" -> "कृपया तुम्ही आम्हाला मदत करू शकता का?"
+                "where are you going" -> "तुम्ही कुठे जात आहात?"
+                "what are you doing" -> "तुम्ही काय करत आहात?"
+
                 "hello", "hi" -> "नमस्कार"
                 "how are you" -> "तुम्ही कसे आहात?"
                 "i am fine" -> "मी ठीक आहे"
@@ -1199,6 +1347,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.GUJARATI -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "નમસ્તે, તમે કેમ છો?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "હું ઠીક છું, તમે કેમ છો?"
+                "we are fine how are you", "we are good how are you" -> "અમે ઠીક છીએ, તમે કેમ છો?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "હું ઠીક છું, તમે કેમ છો?"
+                "hello where are you", "hi where are you" -> "નમસ્તે, તમે ક્યાં છો?"
+                "hello what are you doing", "hi what are you doing" -> "નમસ્તે, તમે શું કરી રહ્યા છો?"
+                "hello what happened", "hi what happened" -> "નમસ્તે, શું થયું?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "હું ઠીક છું, આભાર"
+                "thank you very much", "thank you so much", "thanks a lot" -> "ખૂબ ખૂબ આભાર"
+                "can you help me", "could you help me" -> "કૃપા કરીને શું તમે મને મદદ કરી શકો છો?"
+                "can you help us", "could you help us" -> "કૃપા કરીને શું તમે અમને મદદ કરી શકો છો?"
+                "where are you going" -> "તમે ક્યાં જઈ રહ્યા છો?"
+                "what are you doing" -> "તમે શું કરી રહ્યા છો?"
+
                 "hello", "hi" -> "નમસ્તે"
                 "how are you" -> "તમે કેમ છો?"
                 "i am fine" -> "હું ઠીક છું"
@@ -1217,6 +1380,21 @@ class OfflineTranslatorEngine {
             }
 
             Language.PUNJABI -> when (clean) {
+                // Compound Conversational Greetings + Status + Questions
+                "hello how are you", "hello how are you doing", "hi how are you", "hi how are you doing", "hey how are you" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
+                "i am fine how are you", "i am good how are you", "im fine how are you", "fine how are you" -> "ਮੈਂ ਠੀਕ ਹਾਂ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
+                "we are fine how are you", "we are good how are you" -> "ਅਸੀਂ ਠੀਕ ਹਾਂ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
+                "i am fine what about you", "i am good what about you", "fine what about you" -> "ਮੈਂ ਠੀਕ ਹਾਂ, ਤੁਸੀਂ ਦੱਸੋ?"
+                "hello where are you", "hi where are you" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕਿੱਥੇ ਹੋ?"
+                "hello what are you doing", "hi what are you doing" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕੀ ਕਰ ਰਹੇ ਹੋ?"
+                "hello what happened", "hi what happened" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ, ਕੀ ਹੋਇਆ?"
+                "i am fine thank you", "i am good thank you", "fine thank you" -> "ਮੈਂ ਠੀਕ ਹਾਂ, ਧੰਨਵਾਦ"
+                "thank you very much", "thank you so much", "thanks a lot" -> "ਬਹੁਤ ਬਹੁਤ ਧੰਨਵਾਦ"
+                "can you help me", "could you help me" -> "ਕਿਰਪਾ ਕਰਕੇ ਕੀ ਤੁਸੀਂ ਮੇਰੀ ਮਦਦ ਕਰ ਸਕਦੇ ਹੋ?"
+                "can you help us", "could you help us" -> "ਕਿਰਪਾ ਕਰਕੇ ਕੀ ਤੁਸੀਂ ਸਾਡੀ ਮਦਦ ਕਰ ਸਕਦੇ ਹੋ?"
+                "where are you going" -> "ਤੁਸੀਂ ਕਿੱਥੇ ਜਾ ਰਹੇ ਹੋ?"
+                "what are you doing" -> "ਤੁਸੀਂ ਕੀ ਕਰ ਰਹੇ ਹੋ?"
+
                 "hello", "hi" -> "ਸਤ ਸ੍ਰੀ ਅਕਾਲ"
                 "how are you" -> "ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
                 "i am fine" -> "ਮੈਂ ਠੀਕ ਹਾਂ"
@@ -1947,6 +2125,47 @@ class OfflineTranslatorEngine {
                 Language.TAMIL -> "$loc பகுதியில் $count நபர்கள் உள்ளனர்."
                 Language.HINDI -> "$loc पर $count लोग मौजूद हैं।"
                 Language.TELUGU -> "$loc వద్ద $count మంది ఉన్నారు."
+                else -> text
+            }
+        }
+
+        // Pattern 7: "Please [action]" or "[Action] please"
+        val pleaseMatch = Regex("""^\s*(?:please|kindly)\s+(.+?)\s*$""", RegexOption.IGNORE_CASE).find(text)
+            ?: Regex("""^\s*(.+?)[,\s]+(?:please|kindly)\s*$""", RegexOption.IGNORE_CASE).find(text)
+        if (pleaseMatch != null) {
+            val action = pleaseMatch.groupValues[1].trim()
+            val translatedAction = matchCommonPhrases(action.lowercase(Locale.ROOT), lang, Language.ENGLISH)
+                ?: translateNounPhrase(action, lang)
+            return when (lang) {
+                Language.TAMIL -> "தயவுசெய்து $translatedAction"
+                Language.HINDI -> "कृपया $translatedAction"
+                Language.TELUGU -> "దయచేసి $translatedAction"
+                Language.KANNADA -> "ದಯವಿಟ್ಟು $translatedAction"
+                Language.MALAYALAM -> "ദയവായി $translatedAction"
+                Language.BENGALI -> "অনুগ্রহ করে $translatedAction"
+                Language.MARATHI -> "कृपया $translatedAction"
+                Language.GUJARATI -> "કૃપા કરીને $translatedAction"
+                Language.PUNJABI -> "ਕਿਰਪਾ ਕਰਕੇ $translatedAction"
+                else -> text
+            }
+        }
+
+        // Pattern 8: "Can you / Could you [action]"
+        val canYouMatch = Regex("""^\s*(?:can|could)\s+you\s+(.+?)\s*\??$""", RegexOption.IGNORE_CASE).find(text)
+        if (canYouMatch != null) {
+            val action = canYouMatch.groupValues[1].trim()
+            val translatedAction = matchCommonPhrases(action.lowercase(Locale.ROOT), lang, Language.ENGLISH)
+                ?: translateNounPhrase(action, lang)
+            return when (lang) {
+                Language.TAMIL -> "$translatedAction முடியுமா?"
+                Language.HINDI -> "क्या आप $translatedAction कर सकते हैं?"
+                Language.TELUGU -> "మీరు $translatedAction చేయగలరా?"
+                Language.KANNADA -> "ನೀವು $translatedAction ಮಾಡಬಹುದೇ?"
+                Language.MALAYALAM -> "$translatedAction ചെയ്യാമോ?"
+                Language.BENGALI -> "আপনি কি $translatedAction করতে পারেন?"
+                Language.MARATHI -> "तुम्ही $translatedAction करू शकता का?"
+                Language.GUJARATI -> "શું તમે $translatedAction કરી શકો છો?"
+                Language.PUNJABI -> "ਕੀ ਤੁਸੀਂ $translatedAction ਕਰ ਸਕਦੇ ਹੋ?"
                 else -> text
             }
         }
